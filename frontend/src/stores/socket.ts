@@ -303,6 +303,9 @@ export const useSocketStore = defineStore('socket', () => {
     }
   }
 
+  /** 目前這頁是不是綁在某個房間上（大廳、遊戲中、結算） */
+  const onRoomPage = () => /^\/(lobby|game|results)\//.test(router.currentRoute.value.path)
+
   function handleRoomStatus(data: Record<string, any>) {
     const session = loadSession()
     if (!session) return
@@ -310,12 +313,23 @@ export const useSocketStore = defineStore('socket', () => {
     if (!data.exists) {
       clearSession()
       game.reset()
+      // 房間沒了卻放著使用者停在遊戲頁，畫面會變成沒有任何按鈕的死路。
+      // 最常見的原因是伺服器重新部署過 —— 房間只存在記憶體，重啟就全沒了。
+      if (onRoomPage()) {
+        openBlockingDialog(
+          '房間已經不存在',
+          '這個房間找不到了。伺服器重新啟動（例如剛部署新版）會清掉所有進行中的房間，請重新開一間。',
+        )
+      }
       return
     }
 
     if (!data.playerExists && !session.hostToken) {
       clearSession()
       game.reset()
+      if (onRoomPage()) {
+        openBlockingDialog('已離開房間', '你已經不在這個房間裡了，請重新加入。')
+      }
       return
     }
 

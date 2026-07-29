@@ -78,6 +78,12 @@ const isLastQuestion = computed(
     <!-- 題目列 -->
     <header class="flex shrink-0 flex-wrap items-center justify-between gap-6">
       <div class="min-w-0 flex-1">
+        <button
+          class="mb-1 text-xs text-slate-500 transition hover:text-white"
+          @click="router.push(`/lobby/${roomId}`)"
+        >
+          ← 回大廳（遊戲會繼續）
+        </button>
         <p class="text-sm text-slate-400">
           <span v-if="isPractice" class="rounded bg-amber-500/25 px-2 py-0.5 text-amber-200">
             試玩回合 · 不計分，大家都可以上傳
@@ -259,6 +265,16 @@ const isLastQuestion = computed(
         </button>
         <button class="btn-ghost px-8 py-3" @click="socket.resetRoomToLobby()">開新的一局</button>
       </div>
+    </section>
+
+    <!-- 其他狀態（例如還沒開始）也要有出路，避免變成沒有按鈕的死畫面 -->
+    <section v-else class="mt-6 flex flex-1 flex-col items-center justify-center gap-4 text-center">
+      <div class="text-7xl">⏳</div>
+      <h2 class="text-2xl font-bold">這場還沒開始</h2>
+      <p class="text-sm text-slate-400">回大廳按下開始，或確認大家都加入了沒。</p>
+      <button class="btn-primary mt-2 px-8 py-3" @click="router.push(`/lobby/${roomId}`)">
+        回大廳
+      </button>
     </section>
 
     <!-- 照片一到就彈出，停 3 秒淡出，新的直接蓋上舊的 -->

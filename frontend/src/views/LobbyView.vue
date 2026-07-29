@@ -78,6 +78,11 @@ const shuffleQuestions = () => {
 // 必須先重置回大廳，所以按鈕在這種情況下改成「開新的一局」。
 const finishedLastGame = computed(() => status.value === 'finished')
 
+// 遊戲進行中時房主可能是從遊戲畫面按「回大廳」過來的，要留一條路回去
+const gameInProgress = computed(() =>
+  ['shooting', 'judging', 'round_result'].includes(status.value),
+)
+
 const start = () => {
   if (finishedLastGame.value) {
     socket.resetRoomToLobby()
@@ -173,6 +178,14 @@ const confirmRename = () => {
         </div>
 
         <button
+          v-if="gameInProgress"
+          class="btn-primary w-full py-5 text-xl"
+          @click="$router.push(`/game/host/${roomId}`)"
+        >
+          回到進行中的遊戲 →
+        </button>
+        <button
+          v-else
           class="btn-primary w-full py-5 text-xl"
           :disabled="!players.length && !finishedLastGame"
           @click="start"
