@@ -56,7 +56,7 @@ jobs:
     name: 部署
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: self-hosted
+    runs-on: [self-hosted, beauty-game-deploy]
     concurrency:
       # 同時只跑一次部署，避免兩個 workflow 互相蓋掉
       group: deploy-beauty-game

@@ -13,6 +13,8 @@ services:
     image: beauty-game:latest
     container_name: beauty-game
     restart: unless-stopped
+    ports:
+      - "20930:8081"
     environment:
       ENV: production
       PORT: "8081"
@@ -32,16 +34,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: beauty-game-tunnel
-    restart: unless-stopped
-    # 只往外連，不對外開 port
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?請在 .env 設定 CLOUDFLARE_TUNNEL_TOKEN}
-    depends_on:
-      app:
-        condition: service_healthy
 
 volumes:
   example-images:
