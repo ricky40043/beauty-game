@@ -65,14 +65,31 @@
 
 ## 部署
 
+### 地端 server（主要方式）
+
+GitHub Actions self-hosted runner + Docker Compose + Cloudflare Tunnel，**防火牆一個 port 都不用開**，而且拿得到合法 HTTPS（手機的網頁內即時相機才能用）。
+
+推上 `main` → GitHub 雲端跑測試 → 通過才輪到你的 server 重建重啟。
+
+完整步驟見 **[docs/地端部署指南.md](docs/地端部署指南.md)**。
+
+```bash
+# server 上只要準備好 /opt/beauty-game/.env，之後都交給 CI
+docker compose --env-file /opt/beauty-game/.env up -d --build
+```
+
+自訂示範圖存在 named volume，重新部署不會消失。
+
+### 其他方式
+
 單一 Docker image，前後端合一：
 
 ```bash
 docker build -t beauty-game .
-docker run -p 8081:8081 -e FRONTEND_URL=https://你的網域 beauty-game
+docker run -p 8081:8081 -e FRONTEND_URL=https://你的網域 -e ADMIN_TOKEN=... beauty-game
 ```
 
-或用 `render.yaml` 直接開 Render Blueprint。build 階段會先跑 Go 整合測試，測試沒過就不會產生映像。
+`render.yaml` 也還留著，可直接開 Render Blueprint。build 階段會先跑 Go 測試，沒過就不會產生映像。
 
 `FRONTEND_URL` 決定 QR code 指向哪個網址，部署時一定要設對。
 

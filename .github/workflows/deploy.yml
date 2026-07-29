@@ -1,0 +1,106 @@
+name: CI / 部署到地端 server
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # 需要手動重跑部署時用
+  workflow_dispatch:
+
+jobs:
+  # ── 驗證：跑在 GitHub 的機器上，不碰你的 server ──────────────
+  test:
+    name: 測試與建置
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+          cache-dependency-path: backend/go.sum
+
+      - name: Go 測試
+        working-directory: backend
+        # 整合測試含一段真實倒數，約 15 秒
+        run: go test -timeout 5m ./...
+
+      - name: gofmt 檢查
+        working-directory: backend
+        run: |
+          unformatted=$(gofmt -l ./cmd ./internal)
+          if [ -n "$unformatted" ]; then
+            echo "以下檔案沒有 gofmt 過："
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安裝前端相依
+        working-directory: frontend
+        run: npm ci
+
+      - name: 型別檢查與建置
+        working-directory: frontend
+        run: npm run build
+
+  # ── 部署：跑在你自己的 server 上 ─────────────────────────────
+  # server 在 NAT 後面，是 runner 主動向 GitHub 領工作，不需要對外開 port。
+  deploy:
+    name: 部署
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: self-hosted
+    concurrency:
+      # 同時只跑一次部署，避免兩個 workflow 互相蓋掉
+      group: deploy-beauty-game
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 確認 server 上的設定檔存在
+        run: |
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "找不到 $ENV_FILE"
+            echo "第一次部署請先在 server 上建立它，內容參考 docs/地端部署指南.md"
+            exit 1
+          fi
+        env:
+          ENV_FILE: ${{ vars.DEPLOY_ENV_FILE || '/opt/beauty-game/.env' }}
+
+      - name: 建置並啟動
+        env:
+          ENV_FILE: ${{ vars.DEPLOY_ENV_FILE || '/opt/beauty-game/.env' }}
+        run: |
+          set -euo pipefail
+          # 在 server 本機建 image：不需要 registry，也不用煩惱 CPU 架構
+          docker compose --env-file "$ENV_FILE" build
+          docker compose --env-file "$ENV_FILE" up -d --remove-orphans
+
+      - name: 等服務起來並確認健康
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if docker exec beauty-game wget -qO- http://localhost:8081/api/health >/dev/null 2>&1; then
+              echo "✅ 服務健康"
+              docker exec beauty-game wget -qO- http://localhost:8081/api/health
+              exit 0
+            fi
+            echo "等待服務啟動… ($i/30)"
+            sleep 2
+          done
+
+          echo "❌ 服務沒有在 60 秒內起來，以下是日誌："
+          docker compose logs --tail 80 app
+          exit 1
+
+      - name: 清掉舊的 image
+        if: success()
+        run: docker image prune -f

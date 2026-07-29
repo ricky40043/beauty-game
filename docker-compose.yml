@@ -1,0 +1,47 @@
+# 地端部署：app 本體 + Cloudflare Tunnel
+#
+# server 在 NAT 後面不需要開任何對外 port —— cloudflared 是主動向 Cloudflare
+# 建立連線，流量從 Cloudflare 那端回推進來，TLS 也在 Cloudflare 終結。
+#
+# 機密（tunnel token、後台密碼）放在 server 上的 .env，不進版控也不進 GitHub Secrets。
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: beauty-game:latest
+    container_name: beauty-game
+    restart: unless-stopped
+    environment:
+      ENV: production
+      PORT: "8081"
+      # QR code 依這個網址產生，設錯的話手機掃了會連不到
+      FRONTEND_URL: ${FRONTEND_URL:?請在 .env 設定 FRONTEND_URL，例如 https://game.example.com}
+      CORS_ORIGINS: ${FRONTEND_URL}
+      # 後台上傳/刪除示範圖的密碼。對外服務一定要設，否則任何人都能改圖
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?請在 .env 設定 ADMIN_TOKEN}
+      EXAMPLE_DIR: /root/data/examples
+    volumes:
+      # 自訂示範圖要活過重新部署，所以掛 named volume。
+      # 玩家拍的照片仍然只在記憶體，不會落到這裡。
+      - example-images:/root/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: beauty-game-tunnel
+    restart: unless-stopped
+    # 只往外連，不對外開 port
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?請在 .env 設定 CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  example-images:
