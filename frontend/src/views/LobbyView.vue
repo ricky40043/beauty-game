@@ -122,77 +122,67 @@ const confirmRename = () => {
       <button class="btn-ghost px-4 py-2 text-sm" @click="socket.leaveRoom()">關閉房間</button>
     </header>
 
-    <div class="mt-8 grid gap-8 lg:grid-cols-[auto_1fr]">
-      <section class="flex flex-col items-center gap-4">
-        <QRCodeDisplay :value="shareUrl" :size="360" class="w-64 lg:w-80" />
-        <div class="text-center">
-          <p class="text-sm text-slate-400">房號</p>
-          <p class="text-5xl font-black tracking-[0.2em] text-blush-300">{{ roomId }}</p>
-        </div>
-        <button class="btn-ghost px-4 py-2 text-sm" @click="copyLink">複製加入連結</button>
+    <!--
+      QR 放正中央，而且刻意不顯示題目內容：這一頁是投在大螢幕上給全場看的，
+      把題目清單攤開等於先劇透。房主要確認順序請用「編輯順序」，那是個彈窗。
+    -->
+    <div class="mx-auto mt-6 flex max-w-3xl flex-col items-center gap-6">
+      <QRCodeDisplay :value="shareUrl" :size="520" class="w-[min(46vh,22rem)]" />
+
+      <div class="text-center">
+        <p class="text-sm text-slate-400">房號</p>
+        <p class="text-6xl font-black tracking-[0.2em] text-blush-300 lg:text-7xl">{{ roomId }}</p>
+        <p class="mt-2 text-slate-400">掃碼或輸入房號加入，中途也能進來</p>
+      </div>
+
+      <button class="btn-ghost px-4 py-2 text-sm" @click="copyLink">複製加入連結</button>
+
+      <!-- 已加入的玩家 -->
+      <section class="w-full text-center">
+        <p class="text-lg font-bold">
+          已加入 <span class="text-blush-300">{{ players.length }}</span> 人
+          <span v-if="!requireNickname" class="ml-2 text-xs font-normal text-slate-500">
+            系統自動取名
+          </span>
+        </p>
+
+        <p v-if="!players.length" class="mt-3 text-slate-400">等待玩家掃碼加入…</p>
+
+        <ul v-else class="mt-3 flex flex-wrap justify-center gap-2">
+          <li
+            v-for="player in players"
+            :key="player.id"
+            class="flex items-center gap-2 rounded-2xl bg-white/5 px-3 py-2"
+            :class="{ 'opacity-40': !player.isConnected }"
+          >
+            <span class="text-xl">{{ player.avatar }}</span>
+            <span class="font-medium">{{ player.name }}</span>
+          </li>
+        </ul>
       </section>
 
-      <section class="flex flex-col gap-4">
-        <div class="card flex-1">
-          <header class="flex items-center justify-between">
-            <h2 class="text-xl font-bold">
-              已加入
-              <span class="ml-1 text-blush-300">{{ players.length }}</span> 人
-            </h2>
-            <span v-if="!requireNickname" class="text-xs text-slate-400">系統自動取名模式</span>
-          </header>
-
-          <p v-if="!players.length" class="mt-6 text-center text-slate-400">
-            等待玩家掃碼加入…
-          </p>
-
-          <ul v-else class="mt-4 flex flex-wrap gap-2">
-            <li
-              v-for="player in players"
-              :key="player.id"
-              class="flex items-center gap-2 rounded-2xl bg-white/5 px-3 py-2"
-              :class="{ 'opacity-40': !player.isConnected }"
-            >
-              <span class="text-xl">{{ player.avatar }}</span>
-              <span class="font-medium">{{ player.name }}</span>
-            </li>
-          </ul>
-        </div>
-
-        <div class="card">
-          <header class="flex items-center justify-between">
-            <h2 class="font-bold">題目清單（{{ totalQuestions }} 題）</h2>
-            <div class="flex gap-2">
-              <button class="btn-ghost px-3 py-1.5 text-xs" @click="shuffleQuestions">
-                重新隨機
-              </button>
-              <button class="btn-ghost px-3 py-1.5 text-xs" @click="openEditor">編輯順序</button>
-            </div>
-          </header>
-
-          <ol class="mt-3 max-h-40 space-y-1 overflow-y-auto pr-1 text-sm text-slate-300">
-            <li v-for="(q, index) in game.questions" :key="`${q.id}-${index}`">
-              {{ index + 1 }}. {{ q.text }}
-            </li>
-          </ol>
-        </div>
-
-        <button
-          v-if="gameInProgress"
-          class="btn-primary w-full py-5 text-xl"
-          @click="$router.push(`/game/host/${roomId}`)"
-        >
-          回到進行中的遊戲 →
-        </button>
-        <button
-          v-else
-          class="btn-primary w-full py-5 text-xl"
-          :disabled="!players.length && !finishedLastGame"
-          @click="start"
-        >
-          {{ finishedLastGame ? '開新的一局' : '開始遊戲' }}
-        </button>
+      <!-- 只顯示題數，不顯示題目內容 -->
+      <section class="flex flex-wrap items-center justify-center gap-2 text-sm text-slate-400">
+        <span>共 {{ totalQuestions }} 題 · 每題 {{ questionTimeLimit }} 秒</span>
+        <button class="btn-ghost px-3 py-1.5 text-xs" @click="shuffleQuestions">重新隨機</button>
+        <button class="btn-ghost px-3 py-1.5 text-xs" @click="openEditor">編輯題目</button>
       </section>
+
+      <button
+        v-if="gameInProgress"
+        class="btn-primary w-full max-w-md py-5 text-xl"
+        @click="$router.push(`/game/host/${roomId}`)"
+      >
+        回到進行中的遊戲 →
+      </button>
+      <button
+        v-else
+        class="btn-primary w-full max-w-md py-5 text-xl"
+        :disabled="!players.length && !finishedLastGame"
+        @click="start"
+      >
+        {{ finishedLastGame ? '開新的一局' : '開始遊戲' }}
+      </button>
     </div>
 
     <!-- 題目編輯 -->
@@ -202,7 +192,10 @@ const confirmRename = () => {
     >
       <div class="mx-auto max-w-lg space-y-4 pb-8">
         <header class="flex items-center justify-between">
-          <h2 class="text-xl font-bold">編輯題目與順序</h2>
+          <div>
+            <h2 class="text-xl font-bold">編輯題目與順序</h2>
+            <p class="mt-0.5 text-xs text-amber-300">⚠️ 這裡會顯示題目內容，注意別讓玩家看到</p>
+          </div>
           <button class="text-sm text-slate-400" @click="editingQuestions = false">取消</button>
         </header>
 
