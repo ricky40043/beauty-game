@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -92,6 +93,7 @@ func setupRoutes(
 ) *gin.Engine {
 	router := gin.Default()
 	router.Use(corsMiddleware(cfg))
+	router.Use(cacheMiddleware())
 
 	router.GET("/api/health", api.Health)
 
@@ -123,6 +125,33 @@ func setupRoutes(
 	})
 
 	return router
+}
+
+// cacheMiddleware 決定靜態內容的快取策略。
+//
+// 沒有這段的話 index.html 不帶 Cache-Control，瀏覽器會用「啟發式快取」自己決定
+// 存多久，使用者於是一直拿到舊版的 index —— 而它指向的是上一版的 chunk 檔名，
+// 等於每次部署都有人看到舊畫面。
+func cacheMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		path := c.Request.URL.Path
+
+		switch {
+		case strings.HasPrefix(path, "/api/"):
+			// 交給各 handler 自己決定（照片、示範圖有各自的策略）
+
+		case strings.HasPrefix(path, "/assets/"):
+			// Vite 的檔名帶內容雜湊，內容一改檔名就變，可以放心永久快取
+			c.Header("Cache-Control", "public, max-age=31536000, immutable")
+
+		default:
+			// index.html 與所有 SPA 路由：每次都要回來確認有沒有新版。
+			// 檔案沒變時仍會走 304，成本很低。
+			c.Header("Cache-Control", "no-cache")
+		}
+
+		c.Next()
+	}
 }
 
 func corsMiddleware(cfg *config.Config) gin.HandlerFunc {
