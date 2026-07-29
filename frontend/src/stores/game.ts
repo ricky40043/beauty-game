@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type {
   CurrentQuestion,
   GameMode,
@@ -45,8 +45,16 @@ export const useGameStore = defineStore('game', () => {
   const roundResult = ref<RoundResult | null>(null)
   const history = ref<RoundResult[]>([])
 
-  // 前 5 張（依抵達順序），主畫面常駐縮圖列用
-  const topFive = computed(() => roundPhotos.value.slice(0, 5))
+  // 主畫面「最快交卷」要顯示幾張。這是主持人的顯示偏好，跟房間設定無關，
+  // 所以記在這台裝置上，重新整理或換一局都還在。
+  const STRIP_LIMIT_KEY = 'beauty_strip_limit'
+  const savedLimit = Number(localStorage.getItem(STRIP_LIMIT_KEY))
+  const stripLimit = ref(savedLimit >= 1 && savedLimit <= 20 ? savedLimit : 5)
+
+  watch(stripLimit, (value) => localStorage.setItem(STRIP_LIMIT_KEY, String(value)))
+
+  /** 依抵達順序取前 N 張，主畫面常駐縮圖列用 */
+  const stripPhotos = computed(() => roundPhotos.value.slice(0, stripLimit.value))
 
   const submittedCount = computed(() => roundPhotos.value.length)
   const connectedCount = computed(() => players.value.filter((p) => p.isConnected).length)
@@ -191,7 +199,8 @@ export const useGameStore = defineStore('game', () => {
     scores,
     roundResult,
     history,
-    topFive,
+    stripLimit,
+    stripPhotos,
     submittedCount,
     connectedCount,
     hasSubmitted,

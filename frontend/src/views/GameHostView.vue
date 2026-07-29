@@ -25,7 +25,8 @@ const {
   question,
   timeLeft,
   roundPhotos,
-  topFive,
+  stripLimit,
+  stripPhotos,
   submittedCount,
   connectedCount,
   roundResult,
@@ -38,6 +39,9 @@ const lightboxIndex = ref(-1)
 // 這個遊戲隨時可以中途加入，所以 QR code 全程都留在右上角
 const shareUrl = computed(() => joinUrl.value || `${window.location.origin}/join/${roomId.value}`)
 const qrExpanded = ref(false)
+
+// 「最快交卷」要顯示幾張，1~20 都可以，預設 5
+const stripOptions = [1, 3, 5, 8, 10, 12, 15, 20]
 
 // 示範圖只有部分題目有（目前是團體題）。與其先問後端有沒有，
 // 直接載入、404 就把區塊收起來，房主之後在後台補圖也會自動出現。
@@ -172,9 +176,26 @@ const isLastQuestion = computed(
         :show-slots="false"
         @open="openLightbox"
       />
-      <PhotoStrip v-else :photos="topFive" :total="roundPhotos.length" @open="openLightbox" />
+      <PhotoStrip
+        v-else
+        :photos="stripPhotos"
+        :total="roundPhotos.length"
+        :limit="stripLimit"
+        @open="openLightbox"
+      />
 
-      <div class="flex justify-end">
+      <div class="flex items-center justify-between gap-4" :class="{ 'justify-end': isPractice }">
+        <label v-if="!isPractice" class="flex items-center gap-2 text-xs text-slate-500">
+          顯示最快
+          <select
+            v-model.number="stripLimit"
+            class="rounded-lg border border-white/15 bg-slate-900 px-2 py-1 text-slate-200"
+          >
+            <option v-for="n in stripOptions" :key="n" :value="n">{{ n }}</option>
+          </select>
+          張
+        </label>
+
         <button v-if="isPractice" class="btn-primary px-8 py-3" @click="socket.endPractice()">
           結束試玩，開始第 1 題 →
         </button>

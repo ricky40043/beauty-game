@@ -1,26 +1,52 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { PhotoSubmission } from '@/types'
 
-withDefaults(
-  defineProps<{ photos: PhotoSubmission[]; total: number; title?: string; showSlots?: boolean }>(),
-  { title: '最快交卷的前 5 張', showSlots: true },
+const props = withDefaults(
+  defineProps<{
+    photos: PhotoSubmission[]
+    total: number
+    /** 這一排總共留幾格。用格數而不是固定寬度，張數多時縮小而不是變成要橫向捲動 */
+    limit?: number
+    title?: string
+    showSlots?: boolean
+  }>(),
+  { limit: 5, title: '', showSlots: true },
 )
+
 defineEmits<{ (e: 'open', index: number): void }>()
 
-const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣']
+const heading = computed(() => props.title || `最快交卷的前 ${props.limit} 張`)
+
+const emptySlots = computed(() =>
+  props.showSlots ? Math.max(0, props.limit - props.photos.length) : 0,
+)
+
+// 前三名用獎牌，之後直接標名次，才不會被表情符號數量限制住
+const badge = (index: number) => ['🥇', '🥈', '🥉'][index] ?? `#${index + 1}`
+
+// 張數越多字要越小，不然縮圖被文字撐開
+const dense = computed(() => props.limit > 10)
 </script>
 
 <template>
   <section class="pointer-events-auto">
     <header class="mb-2 flex items-center gap-3 px-1">
-      <h2 class="text-sm font-bold text-slate-300">{{ title }}</h2>
+      <h2 class="text-sm font-bold text-slate-300">{{ heading }}</h2>
       <span class="text-xs text-slate-500">共 {{ total }} 張投稿 · 點一下看大圖</span>
     </header>
 
-    <ul class="flex gap-3 overflow-x-auto pb-1">
+    <!--
+      用 grid 讓所有格子平均分掉整個寬度：張數拉到 20 時縮圖會自己變小，
+      而不是溢出成需要橫向捲動 —— 主畫面通常投在電視上，沒辦法捲。
+    -->
+    <ul
+      class="grid gap-2"
+      :style="{ gridTemplateColumns: `repeat(${Math.max(limit, photos.length)}, minmax(0, 1fr))` }"
+    >
       <li v-for="(photo, index) in photos" :key="photo.photoId">
         <button
-          class="group relative block w-28 overflow-hidden rounded-2xl border-2 border-white/20 bg-slate-900 transition hover:border-blush-400 lg:w-36"
+          class="relative block w-full overflow-hidden rounded-xl border-2 border-white/20 bg-slate-900 transition hover:border-blush-400"
           @click="$emit('open', index)"
         >
           <img
@@ -28,9 +54,15 @@ const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣']
             :alt="`${photo.playerName} 的投稿`"
             class="aspect-square w-full object-cover"
           />
-          <span class="absolute left-1.5 top-1.5 text-xl drop-shadow">{{ medals[index] }}</span>
           <span
-            class="block truncate bg-black/70 px-2 py-1 text-[11px] font-medium text-white"
+            class="absolute left-1 top-1 rounded bg-black/60 px-1 font-bold drop-shadow"
+            :class="dense ? 'text-xs' : 'text-lg'"
+          >
+            {{ badge(index) }}
+          </span>
+          <span
+            class="block truncate bg-black/70 px-1.5 py-0.5 font-medium text-white"
+            :class="dense ? 'text-[9px]' : 'text-[11px]'"
           >
             {{ photo.playerAvatar }} {{ photo.playerName }}
           </span>
@@ -38,13 +70,11 @@ const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣']
       </li>
 
       <li
-        v-for="n in showSlots ? Math.max(0, 5 - photos.length) : 0"
+        v-for="n in emptySlots"
         :key="`empty-${n}`"
-        class="grid w-28 place-items-center rounded-2xl border-2 border-dashed border-white/10 text-white/20 lg:w-36"
+        class="grid aspect-square place-items-center rounded-xl border-2 border-dashed border-white/10 text-white/15"
       >
-        <span class="aspect-square w-full place-content-center text-center text-3xl leading-[7rem] lg:leading-[9rem]">
-          ·
-        </span>
+        ·
       </li>
     </ul>
   </section>
