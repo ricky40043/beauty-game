@@ -44,6 +44,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ 無法初始化示範圖資料夾: %v", err)
 	}
+	exampleStore.SeedFrom("./data/examples")
 
 	questionService := services.NewQuestionService()
 	gameService := services.NewGameService()

@@ -83,6 +83,10 @@ jobs:
           # 在 server 本機建 image：不需要 registry，也不用煩惱 CPU 架構
           docker compose --env-file "$ENV_FILE" build
           docker compose --env-file "$ENV_FILE" up -d --remove-orphans
+          if [ -d "backend/data/examples" ]; then
+            docker exec beauty-game mkdir -p /root/data/examples || true
+            docker cp backend/data/examples/. beauty-game:/root/data/examples/ || true
+          fi
 
       - name: 等服務起來並確認健康
         run: |

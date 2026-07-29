@@ -39,6 +39,47 @@ func NewStore(dir string) (*Store, error) {
 	return &Store{dir: dir}, nil
 }
 
+// SeedFrom 從備份/預設資料夾中補齊缺少的示範圖（不覆蓋已有圖片）
+func (s *Store) SeedFrom(seedDir string) {
+	if seedDir == "" || seedDir == s.dir {
+		return
+	}
+	entries, err := os.ReadDir(seedDir)
+	if err != nil {
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		idStr := strings.TrimSuffix(name, filepath.Ext(name))
+		if _, err := strconv.Atoi(idStr); err != nil {
+			continue
+		}
+
+		hasTarget := false
+		for _, known := range knownExts {
+			if _, err := os.Stat(filepath.Join(s.dir, idStr+"."+known)); err == nil {
+				hasTarget = true
+				break
+			}
+		}
+
+		if !hasTarget {
+			srcPath := filepath.Join(seedDir, name)
+			data, err := os.ReadFile(srcPath)
+			if err == nil && len(data) > 0 {
+				_ = os.WriteFile(filepath.Join(s.dir, name), data, 0o644)
+			}
+		}
+	}
+}
+
 // Dir 圖片存放位置
 func (s *Store) Dir() string { return s.dir }
 
