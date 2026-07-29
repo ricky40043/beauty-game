@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #app {
+    @apply h-full;
+  }
+
+  body {
+    @apply bg-slate-950 text-slate-100 antialiased;
+    /* 手機端拍照介面禁止上下彈跳，避免快門鈕跟著晃 */
+    overscroll-behavior: none;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-base font-semibold
+           transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100;
+  }
+
+  .btn-primary {
+    @apply btn bg-blush-500 text-white shadow-lg shadow-blush-500/30 hover:bg-blush-400;
+  }
+
+  .btn-ghost {
+    @apply btn border border-white/15 bg-white/5 text-slate-100 hover:bg-white/10;
+  }
+
+  .card {
+    @apply rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur;
+  }
+
+  .field {
+    @apply w-full rounded-2xl border border-white/15 bg-slate-900/60 px-4 py-3 text-base
+           text-slate-100 outline-none transition placeholder:text-slate-500
+           focus:border-blush-400 focus:ring-2 focus:ring-blush-500/30;
+  }
+
+  /* 主畫面背景的柔和光暈 */
+  .stage-glow {
+    background:
+      radial-gradient(60rem 40rem at 12% -10%, rgba(249, 46, 131, 0.22), transparent 60%),
+      radial-gradient(50rem 36rem at 92% 8%, rgba(129, 140, 248, 0.18), transparent 60%),
+      #020617;
+  }
+}
+
+/*
+  主畫面照片彈出層：新的一張疊在最上面，停 3 秒後自己淡出。
+  位移與傾斜角由元件用 --tx / --ty / --tilt 傳進來，keyframes 只額外疊上縮放，
+  這樣放大縮小的過程中每張照片都還維持它自己的隨機角度。
+*/
+.photo-pop-enter-active {
+  animation: photo-drop 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.photo-pop-leave-active {
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.photo-pop-leave-to {
+  opacity: 0;
+  transform: translate(var(--tx), var(--ty)) rotate(var(--tilt)) scale(0.92);
+}
+
+@keyframes photo-drop {
+  0% {
+    opacity: 0;
+    transform: translate(var(--tx), var(--ty)) rotate(var(--tilt)) scale(0.65);
+  }
+  65% {
+    opacity: 1;
+    transform: translate(var(--tx), var(--ty)) rotate(var(--tilt)) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(var(--tx), var(--ty)) rotate(var(--tilt)) scale(1);
+  }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}

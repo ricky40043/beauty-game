@@ -1,0 +1,153 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"beauty-game/internal/config"
+	"beauty-game/internal/examples"
+	"beauty-game/internal/handlers"
+	"beauty-game/internal/services"
+	"beauty-game/internal/storage"
+	"beauty-game/internal/websocket"
+
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+)
+
+func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Println("提示: 沒有 .env 檔，改用系統環境變數")
+	}
+
+	cfg := config.Load()
+	if cfg.Environment == "production" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	// 這個遊戲完全跑在記憶體上：房間、分數、照片都不落地
+	photoStore := storage.New(storage.Limits{
+		MaxPhotoBytes: cfg.Photo.MaxPhotoBytes,
+		MaxRoomPhotos: cfg.Photo.MaxRoomPhotos,
+		MaxRoomBytes:  cfg.Photo.MaxRoomBytes,
+	})
+
+	// 示範圖：內建的火柴人 SVG 存在程式裡，房主補的圖寫到磁碟，重啟後還在
+	exampleStore, err := examples.NewStore(cfg.ExampleDir)
+	if err != nil {
+		log.Fatalf("❌ 無法初始化示範圖資料夾: %v", err)
+	}
+
+	questionService := services.NewQuestionService()
+	gameService := services.NewGameService()
+	roomService := services.NewRoomService(cfg, questionService)
+
+	hub := websocket.NewHub(roomService, gameService, questionService, photoStore, cfg.FrontendURL)
+	go hub.Run()
+
+	apiHandler := handlers.NewAPIHandler(roomService, questionService, hub)
+	photoHandler := handlers.NewPhotoHandler(photoStore, roomService, cfg.Photo.MaxPhotoBytes)
+	exampleHandler := handlers.NewExampleHandler(exampleStore, questionService, cfg.AdminToken)
+
+	router := setupRoutes(cfg, apiHandler, photoHandler, exampleHandler)
+
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%s", cfg.Port),
+		Handler: router,
+	}
+
+	go func() {
+		log.Printf("💄 今日我最美 啟動於 http://%s:%s", cfg.Host, cfg.Port)
+		log.Printf("📡 WebSocket: ws://%s:%s/ws", cfg.Host, cfg.Port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("❌ 服務啟動失敗: %v", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("🔄 正在關閉服務…")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("❌ 關閉失敗: %v", err)
+	}
+	log.Println("✅ 已關閉")
+}
+
+func setupRoutes(
+	cfg *config.Config,
+	api *handlers.APIHandler,
+	photo *handlers.PhotoHandler,
+	example *handlers.ExampleHandler,
+) *gin.Engine {
+	router := gin.Default()
+	router.Use(corsMiddleware(cfg))
+
+	router.GET("/api/health", api.Health)
+
+	group := router.Group("/api")
+	{
+		group.GET("/questions", api.GetQuestions)
+		group.GET("/rooms/:roomId", api.GetRoom)
+		group.POST("/rooms/:roomId/photos", photo.Upload)
+		group.GET("/photos/:photoId", photo.Get)
+
+		// 題目示範圖：讀取公開，後台寫入需要 ADMIN_TOKEN（沒設就不驗）
+		group.GET("/questions/:questionId/example", example.Get)
+
+		admin := group.Group("/admin", example.RequireAdmin)
+		{
+			admin.GET("/examples", example.List)
+			admin.POST("/questions/:questionId/example", example.Upload)
+			admin.DELETE("/questions/:questionId/example", example.Delete)
+		}
+	}
+
+	router.GET("/ws", api.ServeWS)
+
+	// 前後端合一部署：Vue build 出來的檔案放在 ./static
+	router.Static("/assets", "./static/assets")
+	router.StaticFile("/favicon.svg", "./static/favicon.svg")
+	router.NoRoute(func(c *gin.Context) {
+		c.File("./static/index.html")
+	})
+
+	return router
+}
+
+func corsMiddleware(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		origin := c.Request.Header.Get("Origin")
+
+		if cfg.Environment != "production" {
+			c.Header("Access-Control-Allow-Origin", "*")
+		} else {
+			for _, allowed := range cfg.CORSOrigins {
+				if origin == allowed {
+					c.Header("Access-Control-Allow-Origin", origin)
+					break
+				}
+			}
+		}
+
+		c.Header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept")
+
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
+}

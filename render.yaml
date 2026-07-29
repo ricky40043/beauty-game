@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: beauty-game
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: ENV
+        value: production
+      - key: PORT
+        value: 8081
+      # 前後端同一個容器，QR code 直接指回自己
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: beauty-game
+          property: host
