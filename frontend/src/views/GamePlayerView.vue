@@ -25,10 +25,21 @@ const {
   roundResult,
   scores,
   playerId,
+  playerName,
+  avatar,
   isPractice,
 } = storeToRefs(game)
 
 const camera = ref<InstanceType<typeof CameraCapture> | null>(null)
+
+// 遊戲進行中也要能離開房間。手機版面很擠，所以收在一個選單裡而不是常駐按鈕。
+const menuOpen = ref(false)
+
+const leave = () => {
+  if (window.confirm('離開後這場的分數就不算了，確定要離開嗎？')) {
+    socket.leaveRoom()
+  }
+}
 
 const canShoot = computed(() => status.value === 'shooting')
 
@@ -79,30 +90,43 @@ const submit = async (blob: Blob) => {
   >
     <!-- 題目永遠釘在最上方，高度壓到最小 -->
     <header class="shrink-0 rounded-2xl border border-white/10 bg-slate-900/80 px-3 py-2 backdrop-blur">
-      <div v-if="question" class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0 flex-1">
           <p class="flex flex-wrap items-center gap-1 text-[11px] leading-none text-slate-400">
-            <span v-if="isPractice" class="rounded bg-amber-500/25 px-1.5 py-0.5 text-amber-200">
-              試玩中 · 不計分
-            </span>
-            <template v-else>
-              <span>第 {{ question.questionNum }} / {{ question.totalQuestions }} 題</span>
-              <span class="rounded bg-white/10 px-1.5 py-0.5">
-                {{ CATEGORY_LABELS[question.category] ?? question.category }}
+            <template v-if="question">
+              <span v-if="isPractice" class="rounded bg-amber-500/25 px-1.5 py-0.5 text-amber-200">
+                試玩中 · 不計分
+              </span>
+              <template v-else>
+                <span>第 {{ question.questionNum }} / {{ question.totalQuestions }} 題</span>
+                <span class="rounded bg-white/10 px-1.5 py-0.5">
+                  {{ CATEGORY_LABELS[question.category] ?? question.category }}
+                </span>
+              </template>
+              <span v-if="mode === 'group'" class="rounded bg-blush-500/25 px-1.5 py-0.5">
+                合體照
               </span>
             </template>
-            <span v-if="mode === 'group'" class="rounded bg-blush-500/25 px-1.5 py-0.5">合體照</span>
+            <span v-else>等待下一題…</span>
           </p>
-          <h1 class="mt-1 text-lg font-black leading-tight">{{ question.text }}</h1>
+          <h1 v-if="question" class="mt-1 text-lg font-black leading-tight">{{ question.text }}</h1>
         </div>
 
-        <div v-if="!isPractice" class="shrink-0 text-right leading-none">
-          <p class="text-2xl font-black tabular-nums" :class="urgency">{{ timeLeft }}</p>
-          <p class="text-[10px] text-slate-500">秒</p>
+        <div class="flex shrink-0 items-center gap-1">
+          <div v-if="question && !isPractice" class="text-right leading-none">
+            <p class="text-2xl font-black tabular-nums" :class="urgency">{{ timeLeft }}</p>
+            <p class="text-[10px] text-slate-500">秒</p>
+          </div>
+
+          <button
+            class="rounded-lg px-2 py-2 text-lg leading-none text-slate-500 active:bg-white/10"
+            aria-label="選單"
+            @click="menuOpen = true"
+          >
+            ⋯
+          </button>
         </div>
       </div>
-
-      <div v-else class="text-center text-sm text-slate-400">等待下一題…</div>
     </header>
 
     <!-- 拍照階段：相機吃掉所有剩餘空間 -->
@@ -176,5 +200,32 @@ const submit = async (blob: Blob) => {
     <section v-else class="flex min-h-0 flex-1 items-center justify-center text-sm text-slate-400">
       等主持人操作…
     </section>
+
+    <!-- 選單：看自己的資料，以及遊戲中離開房間 -->
+    <div
+      v-if="menuOpen"
+      class="fixed inset-0 z-[70] flex items-end bg-slate-950/70 backdrop-blur-sm"
+      @click.self="menuOpen = false"
+    >
+      <div
+        class="w-full rounded-t-3xl border-t border-white/10 bg-slate-900 p-5"
+        style="padding-bottom: max(1.25rem, env(safe-area-inset-bottom))"
+      >
+        <div class="flex items-center gap-3">
+          <span class="text-3xl">{{ avatar }}</span>
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-bold">{{ playerName }}</p>
+            <p class="text-xs text-slate-400">房號 {{ roomId }}</p>
+          </div>
+          <p v-if="myScore" class="text-right">
+            <span class="text-xl font-black">{{ myScore.score }}</span>
+            <span class="block text-[10px] text-slate-500">目前分數</span>
+          </p>
+        </div>
+
+        <button class="btn-ghost mt-4 w-full py-3 text-rose-300" @click="leave">離開房間</button>
+        <button class="btn-ghost mt-2 w-full py-3" @click="menuOpen = false">取消</button>
+      </div>
+    </div>
   </main>
 </template>
