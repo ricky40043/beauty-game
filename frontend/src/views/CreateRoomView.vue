@@ -20,6 +20,7 @@ const setup = reactive<RoomSetup>({
   questionIds: [],
   customQuestions: [],
   requireNickname: false,
+  practiceRound: true,
 })
 
 const submitting = ref(false)
@@ -186,6 +187,28 @@ const create = () => {
           <span class="text-sm text-slate-300">主持人名稱</span>
           <input v-model="setup.hostName" class="field mt-2 py-2 text-sm" maxlength="16" />
         </label>
+
+        <button
+          class="flex w-full items-center justify-between gap-4 rounded-2xl bg-slate-900/60 px-4 py-3 text-left"
+          @click="setup.practiceRound = !setup.practiceRound"
+        >
+          <span>
+            <span class="text-sm font-semibold">開場先試玩一輪</span>
+            <span class="mt-0.5 block text-xs leading-relaxed text-slate-400">
+              正式開始前先來一題不計分的暖身，大家都可以上傳、照片全部顯示，
+              確認相機沒問題再由你按下開始
+            </span>
+          </span>
+          <span
+            class="relative h-6 w-11 shrink-0 rounded-full transition"
+            :class="setup.practiceRound ? 'bg-blush-500' : 'bg-white/15'"
+          >
+            <span
+              class="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all"
+              :class="setup.practiceRound ? 'left-[22px]' : 'left-0.5'"
+            />
+          </span>
+        </button>
 
         <button
           class="flex w-full items-center justify-between gap-4 rounded-2xl bg-slate-900/60 px-4 py-3 text-left"

@@ -79,6 +79,7 @@ export interface CurrentQuestion {
   questionNum: number
   totalQuestions: number
   timeLimit: number
+  isPractice?: boolean
 }
 
 export interface WebSocketMessage {
@@ -105,6 +106,7 @@ export interface RoomSetup {
   questionIds: number[]
   customQuestions: string[]
   requireNickname: boolean
+  practiceRound: boolean
 }
 
 export const CATEGORY_LABELS: Record<string, string> = {

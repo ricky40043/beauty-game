@@ -22,6 +22,15 @@ const keyword = ref('')
 const activeCategory = ref('all')
 const customDraft = ref('')
 
+// 預覽示範圖：不先問後端有沒有圖，直接載入、失敗就顯示提示
+const previewing = ref<Question | null>(null)
+const previewFailed = ref(false)
+
+const openPreview = (question: Question) => {
+  previewFailed.value = false
+  previewing.value = question
+}
+
 const loadBank = async () => {
   loading.value = true
   loadError.value = ''
@@ -150,6 +159,14 @@ const label = (category: string) =>
           <span class="flex-1 text-sm leading-snug">{{ byId.get(id)?.text ?? '（題目已失效）' }}</span>
           <div class="flex shrink-0 gap-1">
             <button
+              v-if="byId.get(id)"
+              class="rounded-lg bg-white/5 px-2 py-1 text-xs"
+              aria-label="看示範圖"
+              @click="openPreview(byId.get(id)!)"
+            >
+              🖼
+            </button>
+            <button
               class="rounded-lg bg-white/5 px-2 py-1 text-xs disabled:opacity-30"
               :disabled="index === 0"
               aria-label="上移"
@@ -268,9 +285,41 @@ const label = (category: string) =>
             <span class="shrink-0 rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-slate-400">
               {{ CATEGORY_LABELS[q.category] ?? q.category }}{{ q.difficulty === 2 ? ' · 進階' : '' }}
             </span>
+            <span
+              class="shrink-0 rounded-lg bg-white/5 px-2 py-1 text-xs hover:bg-white/15"
+              role="button"
+              aria-label="看示範圖"
+              @click.stop="openPreview(q)"
+            >
+              🖼
+            </span>
           </button>
         </li>
       </ul>
     </section>
+
+    <!-- 示範圖預覽 -->
+    <div
+      v-if="previewing"
+      class="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-4 bg-slate-950/95 p-6 backdrop-blur"
+      @click.self="previewing = null"
+    >
+      <p class="max-w-xl text-center text-xl font-bold">{{ previewing.text }}</p>
+
+      <img
+        v-show="!previewFailed"
+        :src="`/api/questions/${previewing.id}/example`"
+        :alt="`${previewing.text} 的示範圖`"
+        class="max-h-[60vh] max-w-full rounded-2xl bg-slate-900/60 p-2"
+        @error="previewFailed = true"
+      />
+
+      <p v-if="previewFailed" class="max-w-sm text-center text-sm leading-relaxed text-slate-400">
+        這題還沒有示範圖。<br />
+        可以到「題目示範圖後台」自己上傳一張。
+      </p>
+
+      <button class="btn-ghost px-6 py-2" @click="previewing = null">關閉</button>
+    </div>
   </div>
 </template>

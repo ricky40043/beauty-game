@@ -222,6 +222,7 @@ export const useSocketStore = defineStore('socket', () => {
           questionNum: data.questionNum,
           totalQuestions: data.totalQuestions,
           timeLimit: data.timeLimit,
+          isPractice: Boolean(data.isPractice),
         })
         goToGameView(data.roomId)
         break
@@ -239,6 +240,10 @@ export const useSocketStore = defineStore('socket', () => {
         game.uploading = false
         game.myPhotoUrl = data.url
         ui.showSuccess(data.replaced ? '已換成新的照片！' : '上傳成功！')
+        break
+
+      case 'PRACTICE_ENDED':
+        ui.showSuccess('試玩結束，正式開始！')
         break
 
       case 'ROUND_CLOSED':
@@ -415,6 +420,7 @@ export const useSocketStore = defineStore('socket', () => {
       questionIds: setup.questionIds,
       customQuestions: setup.customQuestions,
       requireNickname: setup.requireNickname,
+      practiceRound: setup.practiceRound,
     })
   }
 
@@ -429,6 +435,7 @@ export const useSocketStore = defineStore('socket', () => {
   const startGame = () => send('START_GAME')
   const submitPhoto = (photoId: string) => send('SUBMIT_PHOTO', { photoId })
   const endShooting = () => send('END_SHOOTING')
+  const endPractice = () => send('END_PRACTICE')
   const pickWinners = (photoIds: string[]) => send('PICK_WINNERS', { photoIds })
   const skipRound = () => send('SKIP_ROUND')
   const nextQuestion = () => send('NEXT_QUESTION')
@@ -454,6 +461,7 @@ export const useSocketStore = defineStore('socket', () => {
     startGame,
     submitPhoto,
     endShooting,
+    endPractice,
     pickWinners,
     skipRound,
     nextQuestion,

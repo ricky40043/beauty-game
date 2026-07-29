@@ -183,6 +183,8 @@ func (c *Client) handleMessage(msg *Message) {
 		c.handleSubmitPhoto(msg.Data)
 	case "END_SHOOTING":
 		c.handleEndShooting()
+	case "END_PRACTICE":
+		c.handleEndPractice()
 	case "PICK_WINNERS":
 		c.handlePickWinners(msg.Data)
 	case "SKIP_ROUND":
@@ -229,6 +231,8 @@ func (c *Client) handleCreateRoom(data any) {
 		"clientId":          c.ID,
 		"mode":              room.Mode,
 		"requireNickname":   room.RequireNickname,
+		"practiceEnabled":   room.PracticeEnabled,
+		"inPractice":        room.InPractice,
 		"totalQuestions":    len(room.Questions),
 		"questionTimeLimit": room.QuestionTimeLimit,
 		"questions":         room.Questions,
@@ -447,6 +451,8 @@ func (c *Client) handleUpdateSettings(data any) {
 		"roomId":            room.ID,
 		"questionTimeLimit": room.QuestionTimeLimit,
 		"requireNickname":   room.RequireNickname,
+		"practiceEnabled":   room.PracticeEnabled,
+		"inPractice":        room.InPractice,
 		"totalQuestions":    len(room.Questions),
 		"questions":         room.Questions,
 	})

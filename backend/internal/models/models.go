@@ -108,6 +108,11 @@ type Room struct {
 	// RequireNickname 為 false（預設）時，玩家掃碼即可入場，由伺服器自動配暱稱
 	RequireNickname bool `json:"requireNickname"`
 
+	// PracticeEnabled 開局先跑一輪試玩：不計分、不限張數顯示，讓大家先確認相機沒問題
+	PracticeEnabled bool `json:"practiceEnabled"`
+	// InPractice 目前正處於試玩回合
+	InPractice bool `json:"inPractice"`
+
 	Players   map[string]*Player `json:"players"`
 	Questions []Question         `json:"questions"`
 
@@ -150,6 +155,15 @@ type CreateRoomRequest struct {
 	QuestionIDs       []int    `json:"questionIds"`     // 自選模式：題庫題目，順序即遊玩順序
 	CustomQuestions   []string `json:"customQuestions"` // 自選模式：房主自己打的題目，接在後面
 	RequireNickname   bool     `json:"requireNickname"`
+	PracticeRound     bool     `json:"practiceRound"`
+}
+
+// PracticeQuestion 試玩回合用的題目。不屬於題庫，也不計入總題數。
+var PracticeQuestion = Question{
+	ID:         9999,
+	Text:       "試玩：隨便拍一張，確認相機沒問題",
+	Category:   CategoryCustom,
+	Difficulty: 1,
 }
 
 // AddPlayer 新增玩家

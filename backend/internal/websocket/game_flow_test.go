@@ -698,3 +698,130 @@ func TestTimerClosesRound(t *testing.T) {
 		}
 	}
 }
+
+// TestGroupModeOneUploadPerPlayer 團體模式同一個人也只能有一張投稿。
+// 之前允許一人三張，會讓單一玩家洗版、還把「已交卷 3/1」這種數字弄得沒意義。
+func TestGroupModeOneUploadPerPlayer(t *testing.T) {
+	srv := newTestServer(t)
+
+	host := srv.dial(t)
+	host.send("CREATE_ROOM", map[string]any{
+		"hostName": "主持人", "mode": "group",
+		"totalQuestions": 1, "questionTimeLimit": 60, "questionMode": "random",
+	})
+	roomID, _ := host.await("ROOM_CREATED")["roomId"].(string)
+
+	player := srv.dial(t)
+	player.send("JOIN_ROOM", map[string]any{"roomId": roomID, "playerName": "阿美"})
+	player.await("JOIN_SUCCESS")
+
+	host.send("START_GAME", map[string]any{})
+	host.await("GAME_STARTED")
+	host.await("NEW_QUESTION")
+
+	// 連傳三張，全部由同一個人送出
+	for i := 1; i <= 3; i++ {
+		player.send("SUBMIT_PHOTO", map[string]any{"photoId": srv.uploadPhoto(t, roomID)})
+		accepted := player.await("PHOTO_ACCEPTED")
+
+		if order, _ := accepted["order"].(float64); int(order) != 1 {
+			t.Fatalf("第 %d 次上傳的順序應該都是 1，實際 %v", i, accepted["order"])
+		}
+		if replaced, _ := accepted["replaced"].(bool); replaced != (i > 1) {
+			t.Fatalf("第 %d 次上傳的 replaced 應為 %v，實際 %v", i, i > 1, replaced)
+		}
+	}
+
+	host.send("END_SHOOTING", map[string]any{})
+	closed := host.await("ROUND_CLOSED")
+
+	if total, _ := closed["totalPhotos"].(float64); int(total) != 1 {
+		t.Fatalf("一個人連傳三次，房內仍應只有 1 張照片，實際 %v", closed["totalPhotos"])
+	}
+
+	// 參與分與速度分也只能拿一次
+	photos, _ := closed["photos"].([]any)
+	first, _ := photos[0].(map[string]any)
+	host.send("PICK_WINNERS", map[string]any{"photoIds": []string{first["photoId"].(string)}})
+	result := host.await("ROUND_RESULT")
+
+	scores, _ := result["scores"].([]any)
+	top, _ := scores[0].(map[string]any)
+	want := 10 + 15 + 100 + services.PointsGroupBonus
+	if got, _ := top["score"].(float64); int(got) != want {
+		t.Fatalf("分數應為 %d（參與+速度各一次），實際 %v", want, top["score"])
+	}
+}
+
+// TestPracticeRound 試玩回合：不計分、不倒數，由房主結束後才進正式第 1 題
+func TestPracticeRound(t *testing.T) {
+	srv := newTestServer(t)
+
+	host := srv.dial(t)
+	host.send("CREATE_ROOM", map[string]any{
+		"hostName": "主持人", "mode": "solo",
+		"totalQuestions": 2, "questionTimeLimit": 60, "questionMode": "random",
+		"practiceRound": true,
+	})
+	created := host.await("ROOM_CREATED")
+	roomID, _ := created["roomId"].(string)
+	if enabled, _ := created["practiceEnabled"].(bool); !enabled {
+		t.Fatal("建房時 practiceRound 沒有生效")
+	}
+
+	player := srv.dial(t)
+	player.send("JOIN_ROOM", map[string]any{"roomId": roomID, "playerName": "小新"})
+	playerID, _ := player.await("JOIN_SUCCESS")["playerId"].(string)
+
+	host.send("START_GAME", map[string]any{})
+	host.await("GAME_STARTED")
+
+	practice := host.await("NEW_QUESTION")
+	if isPractice, _ := practice["isPractice"].(bool); !isPractice {
+		t.Fatal("第一個回合應該是試玩")
+	}
+	if left, _ := practice["timeLeft"].(float64); int(left) != 0 {
+		t.Fatalf("試玩不該倒數，timeLeft 應為 0，實際 %v", practice["timeLeft"])
+	}
+
+	// 試玩投稿不計分
+	player.send("SUBMIT_PHOTO", map[string]any{"photoId": srv.uploadPhoto(t, roomID)})
+	player.await("PHOTO_ACCEPTED")
+
+	// 只有一位玩家，若誤用正式規則會在這裡自動收桌 —— 試玩不該收桌
+	select {
+	case msg := <-host.msgs:
+		if msg.Type == "ROUND_CLOSED" {
+			t.Fatal("試玩回合不該自動收桌")
+		}
+	case <-time.After(1500 * time.Millisecond):
+	}
+
+	host.send("END_PRACTICE", map[string]any{})
+	host.await("PRACTICE_ENDED")
+
+	real := host.await("NEW_QUESTION")
+	if isPractice, _ := real["isPractice"].(bool); isPractice {
+		t.Fatal("結束試玩後應該進正式題")
+	}
+	if num, _ := real["questionNum"].(float64); int(num) != 1 {
+		t.Fatalf("正式第一題的題號應為 1，實際 %v", real["questionNum"])
+	}
+
+	// 試玩拿到的分數不算數，正式開賽時應該還是 0
+	host.send("END_SHOOTING", map[string]any{})
+	host.await("ROUND_CLOSED")
+	host.send("SKIP_ROUND", map[string]any{})
+	scores, _ := host.await("ROUND_RESULT")["scores"].([]any)
+
+	for _, raw := range scores {
+		s, _ := raw.(map[string]any)
+		if id, _ := s["playerId"].(string); id == playerID {
+			if score, _ := s["score"].(float64); score != 0 {
+				t.Fatalf("試玩不該計分，實際拿到 %v 分", score)
+			}
+			return
+		}
+	}
+	t.Fatal("排行榜裡找不到玩家")
+}

@@ -18,6 +18,8 @@ export const useGameStore = defineStore('game', () => {
   const mode = ref<GameMode>('solo')
   const status = ref<RoomStatus>('waiting')
   const requireNickname = ref(false)
+  const practiceEnabled = ref(false)
+  const isPractice = ref(false)
   const totalQuestions = ref(0)
   const questionTimeLimit = ref(60)
   const joinUrl = ref('')
@@ -58,6 +60,8 @@ export const useGameStore = defineStore('game', () => {
     if (payload.mode) mode.value = payload.mode
     if (payload.status) status.value = payload.status
     if (payload.requireNickname !== undefined) requireNickname.value = payload.requireNickname
+    if (payload.practiceEnabled !== undefined) practiceEnabled.value = payload.practiceEnabled
+    if (payload.inPractice !== undefined) isPractice.value = payload.inPractice
     if (payload.totalQuestions !== undefined) totalQuestions.value = payload.totalQuestions
     if (payload.questionTimeLimit !== undefined) questionTimeLimit.value = payload.questionTimeLimit
     if (payload.joinUrl) joinUrl.value = payload.joinUrl
@@ -84,7 +88,8 @@ export const useGameStore = defineStore('game', () => {
   }
 
   /** 新的一題：清掉上一題的照片與結果 */
-  const startQuestion = (payload: CurrentQuestion) => {
+  const startQuestion = (payload: CurrentQuestion & { isPractice?: boolean }) => {
+    isPractice.value = Boolean(payload.isPractice)
     question.value = payload
     timeLeft.value = payload.timeLimit
     totalQuestions.value = payload.totalQuestions
@@ -146,6 +151,8 @@ export const useGameStore = defineStore('game', () => {
     mode.value = 'solo'
     status.value = 'waiting'
     requireNickname.value = false
+    practiceEnabled.value = false
+    isPractice.value = false
     totalQuestions.value = 0
     joinUrl.value = ''
     questions.value = []
@@ -164,6 +171,8 @@ export const useGameStore = defineStore('game', () => {
     mode,
     status,
     requireNickname,
+    practiceEnabled,
+    isPractice,
     totalQuestions,
     questionTimeLimit,
     joinUrl,

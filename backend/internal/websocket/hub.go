@@ -264,6 +264,8 @@ func (h *Hub) roomSnapshot(room *models.Room) map[string]any {
 		"mode":              room.Mode,
 		"status":            room.Status,
 		"requireNickname":   room.RequireNickname,
+		"practiceEnabled":   room.PracticeEnabled,
+		"inPractice":        room.InPractice,
 		"players":           room.PlayerList(),
 		"totalQuestions":    len(room.Questions),
 		"currentQuestion":   room.CurrentQuestion,

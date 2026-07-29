@@ -58,7 +58,7 @@ cd frontend && npm run type-check
 
 **關鍵元件：**
 - `CameraCapture.vue` — 主路徑 `getUserMedia` 全螢幕預覽 + 前後鏡頭切換；不可用時自動退回 `<input type="file" capture>`。拍完進預覽可重拍
-- `PhotoPopupLayer.vue` — 照片彈出停 **3 秒**淡出；3 秒內來新照片時，舊的加速 260ms 退場、新的蓋在上面
+- `PhotoPopupLayer.vue` — 照片彈出停 **3 秒**淡出，隨機 **±30 度**傾斜疊成相片堆。傾斜角走 CSS 變數 `--tilt`，否則進場動畫的 `scale()` 會把旋轉整個覆蓋掉
 - `PhotoStrip.vue` — 主畫面常駐「最快前 5 張」縮圖，可點開燈箱
 - `JudgePanel.vue` — 房主評選，點選順序即名次
 - `QuestionPicker.vue` — 建房與大廳共用的題目選擇器（分類、搜尋、排序、自訂題）
@@ -74,8 +74,16 @@ cd frontend && npm run type-check
 
 **不從網路抓圖**：版權素材不可打包進會對外部署的 App，內建圖一律程式自己畫。
 
+## 試玩回合
+
+建房可勾選「開場先試玩一輪」（`Room.PracticeEnabled`）。開始遊戲後先進 `InPractice` 狀態：
+用固定的 `models.PracticeQuestion`、**不倒數**（`TimeLeft = 0`、不啟計時器）、**不計分**、
+**不自動收桌**（`AllPlayersSubmitted` 在試玩時一律回 false），主畫面顯示全部投稿而非前 5 張。
+房主按 `END_PRACTICE` 才清掉試玩照片並進正式第 1 題。
+
 ## 計分規則（`services/game_service.go`）
 
+- 每人每題只有一張投稿，再傳就是覆蓋（沿用抵達順序、不重複給分）
 - 完成上傳 +10
 - 抵達順序前三 +15 / +10 / +5
 - 得獎依房主點選順序 100 / 80 / 60 / 40 / 20
@@ -93,6 +101,7 @@ cd frontend && npm run type-check
 
 ## 重要限制
 
+- 手機端用 `h-[100dvh]` + `overflow-hidden` 鎖成一頁。`min-h-screen` 會讓內容超出視窗、底下留一塊黑的，而且網址列伸縮時高度不會跟著變
 - **`getUserMedia` 需要 HTTPS 或 localhost。** 手機用區網 IP 走 http 連 dev server 時網頁相機會被擋，`CameraCapture` 會自動退回系統相機，功能不受影響
 - 房主不是玩家：房主只負責主畫面與評選，不參與拍照與計分
 - 房主身分靠 `hostToken`（localStorage）驗證，換連線重連後仍是房主

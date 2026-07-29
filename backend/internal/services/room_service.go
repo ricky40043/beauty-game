@@ -89,6 +89,7 @@ func (s *RoomService) CreateRoom(req models.CreateRoomRequest) (*models.Room, er
 		Mode:              mode,
 		Status:            models.RoomStatusWaiting,
 		RequireNickname:   req.RequireNickname,
+		PracticeEnabled:   req.PracticeRound,
 		Players:           make(map[string]*models.Player),
 		Questions:         questions,
 		CurrentQuestion:   -1,

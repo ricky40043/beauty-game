@@ -10,23 +10,36 @@ import (
 
 // questionPayload 組出 NEW_QUESTION 的內容
 func (h *Hub) questionPayload(room *models.Room, q models.Question) map[string]any {
+	if room.InPractice {
+		q = models.PracticeQuestion
+	}
+
 	return map[string]any{
-		"roomId":         room.ID,
-		"questionId":     q.ID,
-		"text":           q.Text,
-		"category":       q.Category,
-		"difficulty":     q.Difficulty,
-		"mode":           room.Mode,
-		"questionIndex":  room.CurrentQuestion,
-		"questionNum":    room.CurrentQuestion + 1,
-		"totalQuestions": len(room.Questions),
-		"timeLimit":      room.QuestionTimeLimit,
-		"timeLeft":       room.TimeLeft,
+		"isPractice":      room.InPractice,
+		"roomId":          room.ID,
+		"questionId":      q.ID,
+		"text":            q.Text,
+		"category":        q.Category,
+		"difficulty":      q.Difficulty,
+		"mode":            room.Mode,
+		"questionIndex":   room.CurrentQuestion,
+		"questionNum":     room.CurrentQuestion + 1,
+		"practiceEnabled": room.PracticeEnabled,
+		"totalQuestions":  len(room.Questions),
+		"timeLimit":       room.QuestionTimeLimit,
+		"timeLeft":        room.TimeLeft,
 	}
 }
 
 // startRound 廣播新題目並啟動倒數
 func (h *Hub) startRound(room *models.Room) {
+	if room.InPractice {
+		log.Printf("🎈 房間 %s 進入試玩回合", room.ID)
+		h.BroadcastToRoom(room.ID, "NEW_QUESTION", h.questionPayload(room, models.PracticeQuestion))
+		// 試玩不倒數，房主按下開始才進正式題
+		return
+	}
+
 	q, ok := room.CurrentQuestionData()
 	if !ok {
 		h.finishGame(room)
@@ -140,7 +153,32 @@ func (c *Client) handleEndShooting() {
 	if !ok {
 		return
 	}
+
+	// 試玩沒有評選，直接進正式第 1 題
+	if room.InPractice {
+		c.handleEndPractice()
+		return
+	}
+
 	c.hub.closeRound(room, "房主提前結束拍照")
+}
+
+// handleEndPractice 結束試玩，正式開賽
+func (c *Client) handleEndPractice() {
+	room, ok := c.requireHostRoom()
+	if !ok {
+		return
+	}
+
+	if err := c.hub.gameService.EndPractice(room); err != nil {
+		c.sendError("NOT_PRACTICE", err.Error())
+		return
+	}
+
+	// 試玩的照片留著沒有意義，直接釋放記憶體
+	c.hub.photoStore.PurgeRoom(room.ID)
+	c.hub.BroadcastToRoom(room.ID, "PRACTICE_ENDED", map[string]any{"roomId": room.ID})
+	c.hub.startRound(room)
 }
 
 func (c *Client) handlePickWinners(data any) {
@@ -273,8 +311,6 @@ func (c *Client) handleSubmitPhoto(data any) {
 		switch err {
 		case services.ErrNotShooting:
 			c.sendError("NOT_SHOOTING", "現在不是拍照時間")
-		case services.ErrUploadLimit:
-			c.sendError("UPLOAD_LIMIT", err.Error())
 		default:
 			c.sendError("SUBMIT_FAILED", err.Error())
 		}

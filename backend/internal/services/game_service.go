@@ -16,8 +16,6 @@ const (
 	PointsGroupBonus = 50
 	// MaxWinnersPerRound 房主每題最多可以選幾張得獎
 	MaxWinnersPerRound = 5
-	// MaxGroupUploadsPerPlayer 團體模式每人每回合的投稿上限
-	MaxGroupUploadsPerPlayer = 3
 )
 
 var (
@@ -32,8 +30,6 @@ var (
 	ErrNotShooting = errors.New("現在不是拍照時間")
 	// ErrAlreadySubmitted 單人模式已投稿過
 	ErrAlreadySubmitted = errors.New("這題你已經上傳過了")
-	// ErrUploadLimit 團體模式投稿數已達上限
-	ErrUploadLimit = errors.New("這題你的上傳次數已達上限")
 	// ErrNoQuestions 房間沒有題目
 	ErrNoQuestions = errors.New("這個房間還沒有任何題目")
 	// ErrNotJudging 目前不是評選階段
@@ -79,12 +75,40 @@ func (s *GameService) StartGame(room *models.Room) error {
 		p.Uploads = 0
 	}
 
+	// 有開試玩就先跑一輪不計分的暖身，讓大家確認相機沒問題再進正式第 1 題
+	if room.PracticeEnabled {
+		room.InPractice = true
+		room.RoundPhotos = make([]*models.PhotoSubmission, 0, 8)
+		room.RoundStartAt = now
+		room.RoundSeq++
+		// 試玩不倒數，由房主決定什麼時候開始正式遊戲
+		room.TimeLeft = 0
+		room.Status = models.RoomStatusShooting
+		room.LastActivity = now
+		return nil
+	}
+
+	s.beginRoundLocked(room)
+	return nil
+}
+
+// EndPractice 結束試玩，進入正式第 1 題
+func (s *GameService) EndPractice(room *models.Room) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if !room.InPractice {
+		return errors.New("現在不是試玩回合")
+	}
+
+	room.InPractice = false
 	s.beginRoundLocked(room)
 	return nil
 }
 
 // beginRoundLocked 推進到下一題並開始倒數；呼叫前必須已持有鎖
 func (s *GameService) beginRoundLocked(room *models.Room) {
+	room.InPractice = false
 	room.CurrentQuestion++
 	room.RoundPhotos = make([]*models.PhotoSubmission, 0, 8)
 	room.RoundStartAt = time.Now()
@@ -140,21 +164,18 @@ func (s *GameService) AddSubmission(room *models.Room, player *models.Player, ph
 		return nil, "", ErrNotShooting
 	}
 
-	if room.Mode == models.ModeSolo {
-		for i, existing := range room.RoundPhotos {
-			if existing.PlayerID != player.ID {
-				continue
-			}
-			// 重拍：沿用原本的抵達順序，只換照片，不重複給參與分
-			replacedPhotoID = existing.PhotoID
-			existing.PhotoID = photoID
-			existing.URL = url
-			existing.SubmittedAt = time.Now()
-			room.LastActivity = existing.SubmittedAt
-			return room.RoundPhotos[i], replacedPhotoID, nil
+	// 不分模式，每人每題就是一張。再傳就是重拍覆蓋，沿用原本的抵達順序，
+	// 也不重複給參與分 —— 否則一個人連傳好幾張就能洗版兼刷分。
+	for i, existing := range room.RoundPhotos {
+		if existing.PlayerID != player.ID {
+			continue
 		}
-	} else if room.SubmissionCountOf(player.ID) >= MaxGroupUploadsPerPlayer {
-		return nil, "", ErrUploadLimit
+		replacedPhotoID = existing.PhotoID
+		existing.PhotoID = photoID
+		existing.URL = url
+		existing.SubmittedAt = time.Now()
+		room.LastActivity = existing.SubmittedAt
+		return room.RoundPhotos[i], replacedPhotoID, nil
 	}
 
 	now := time.Now()
@@ -178,6 +199,11 @@ func (s *GameService) AddSubmission(room *models.Room, player *models.Player, ph
 	room.RoundPhotos = append(room.RoundPhotos, sub)
 	room.LastActivity = now
 
+	// 試玩回合純粹暖身，不計分也不累計投稿數
+	if room.InPractice {
+		return sub, "", nil
+	}
+
 	player.Uploads++
 	player.Score += PointsForUpload
 	if order <= len(speedBonus) {
@@ -192,7 +218,8 @@ func (s *GameService) AllPlayersSubmitted(room *models.Room) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if room.Mode != models.ModeSolo {
+	// 試玩不自動收桌：讓每個人都有機會試拍，由房主決定何時開始
+	if room.InPractice || room.Mode != models.ModeSolo {
 		return false
 	}
 
@@ -347,6 +374,7 @@ func (s *GameService) ResetToLobby(room *models.Room) {
 
 	room.Status = models.RoomStatusWaiting
 	room.CurrentQuestion = -1
+	room.InPractice = false
 	room.RoundPhotos = nil
 	room.RoundSeq++
 	room.TimeLeft = 0

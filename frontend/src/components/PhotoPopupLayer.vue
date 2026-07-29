@@ -20,11 +20,8 @@ interface StackItem {
 const stack = ref<StackItem[]>([])
 let nextKey = 1
 
-/** 隨機 10~30 度，左右各半，像被隨手丟在桌上的相片 */
-const randomTilt = () => {
-  const degrees = 10 + Math.random() * 20
-  return Math.random() < 0.5 ? -degrees : degrees
-}
+/** 正負 30 度之間均勻隨機，像被隨手丟在桌上的相片 */
+const randomTilt = () => Math.random() * 60 - 30
 
 const drop = (key: number) => {
   const index = stack.value.findIndex((item) => item.key === key)

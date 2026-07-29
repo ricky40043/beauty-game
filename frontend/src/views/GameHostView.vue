@@ -30,6 +30,7 @@ const {
   connectedCount,
   roundResult,
   scores,
+  isPractice,
 } = storeToRefs(game)
 
 const lightboxIndex = ref(-1)
@@ -78,10 +79,15 @@ const isLastQuestion = computed(
     <header class="flex shrink-0 flex-wrap items-center justify-between gap-6">
       <div class="min-w-0 flex-1">
         <p class="text-sm text-slate-400">
-          第 {{ question?.questionNum ?? '-' }} / {{ question?.totalQuestions ?? '-' }} 題
-          <span v-if="question" class="ml-2 rounded bg-white/10 px-2 py-0.5">
-            {{ CATEGORY_LABELS[question.category] ?? question.category }}
+          <span v-if="isPractice" class="rounded bg-amber-500/25 px-2 py-0.5 text-amber-200">
+            試玩回合 · 不計分，大家都可以上傳
           </span>
+          <template v-else>
+            第 {{ question?.questionNum ?? '-' }} / {{ question?.totalQuestions ?? '-' }} 題
+            <span v-if="question" class="ml-2 rounded bg-white/10 px-2 py-0.5">
+              {{ CATEGORY_LABELS[question.category] ?? question.category }}
+            </span>
+          </template>
           <span v-if="mode === 'group'" class="ml-2 rounded bg-blush-500/25 px-2 py-0.5">
             團體合體照
           </span>
@@ -92,14 +98,17 @@ const isLastQuestion = computed(
       </div>
 
       <div class="flex shrink-0 items-center gap-6">
-        <div v-if="status === 'shooting'" class="text-center">
+        <div v-if="status === 'shooting' && !isPractice" class="text-center">
           <p class="text-sm text-slate-400">已交卷</p>
           <p class="text-3xl font-black tabular-nums">
             {{ submittedCount }}<span class="text-lg text-slate-500">/{{ connectedCount }}</span>
           </p>
         </div>
 
-        <div v-if="status === 'shooting'" class="relative grid h-28 w-28 place-items-center">
+        <div
+          v-if="status === 'shooting' && !isPractice"
+          class="relative grid h-28 w-28 place-items-center"
+        >
           <svg class="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
             <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="8" />
             <circle
@@ -149,10 +158,23 @@ const isLastQuestion = computed(
         </div>
       </div>
 
-      <PhotoStrip :photos="topFive" :total="roundPhotos.length" @open="openLightbox" />
+      <PhotoStrip
+        v-if="isPractice"
+        :photos="roundPhotos"
+        :total="roundPhotos.length"
+        title="試玩投稿（全部顯示）"
+        :show-slots="false"
+        @open="openLightbox"
+      />
+      <PhotoStrip v-else :photos="topFive" :total="roundPhotos.length" @open="openLightbox" />
 
       <div class="flex justify-end">
-        <button class="btn-ghost px-6 py-3" @click="socket.endShooting()">提前結束拍照</button>
+        <button v-if="isPractice" class="btn-primary px-8 py-3" @click="socket.endPractice()">
+          結束試玩，開始第 1 題 →
+        </button>
+        <button v-else class="btn-ghost px-6 py-3" @click="socket.endShooting()">
+          提前結束拍照
+        </button>
       </div>
     </section>
 
@@ -245,15 +267,13 @@ const isLastQuestion = computed(
     <!-- QR 放大：房間太大時給遠一點的人掃 -->
     <div
       v-if="qrExpanded"
-      class="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-6 bg-slate-950/95 p-8 backdrop-blur"
+      class="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-6 bg-slate-950 p-8"
       @click="qrExpanded = false"
     >
-      <QRCodeDisplay :value="shareUrl" :size="640" class="w-[min(70vh,70vw)]" />
-      <div class="text-center">
-        <p class="text-6xl font-black tracking-[0.2em] text-blush-300">{{ roomId }}</p>
-        <p class="mt-2 text-slate-400">中途也能加入，掃碼就開始玩</p>
-      </div>
-      <p class="text-sm text-slate-500">點任一處關閉</p>
+      <!-- 刻意用不透明背景：放大 QR 時要把題目完全蓋住，不能讓還沒加入的人先看到題目 -->
+      <QRCodeDisplay :value="shareUrl" :size="720" class="w-[min(64vh,64vw)]" />
+      <p class="text-6xl font-black tracking-[0.2em] text-blush-300">{{ roomId }}</p>
+      <p class="text-sm text-slate-600">點任一處關閉</p>
     </div>
 
     <PhotoLightbox

@@ -108,7 +108,15 @@ onBeforeUnmount(() => {
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
 })
 
-defineExpose({ retake })
+/**
+ * 換題時呼叫：把停在預覽的畫面切回相機。
+ * 已經在拍照狀態就什麼都不做，避免無謂地重啟相機造成閃爍。
+ */
+const resetForNewQuestion = () => {
+  if (stage.value === 'preview') retake()
+}
+
+defineExpose({ retake, resetForNewQuestion })
 </script>
 
 <template>
