@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -21,6 +23,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
+
+// staticRoot 前端 build 產物的位置。宣告成變數是為了讓測試能指到暫存目錄。
+var staticRoot = "./static"
 
 func main() {
 	if err := godotenv.Load(); err != nil {
@@ -120,8 +125,17 @@ func setupRoutes(
 
 	// 前後端合一部署：Vue build 出來的檔案放在 ./static
 	router.Static("/assets", "./static/assets")
-	router.StaticFile("/favicon.svg", "./static/favicon.svg")
+
 	router.NoRoute(func(c *gin.Context) {
+		// ./static 底下真的存在這個檔案就直接送出（favicon、/sounds/*.mp3、
+		// 之後放進 public/ 的任何東西都適用），否則才交給 SPA 的 index.html。
+		//
+		// 原本是逐一註冊每個靜態檔，漏掉的路徑會靜靜地回傳 index.html —— 前端拿到
+		// 一份 HTML 當成 MP3 去解碼，失敗得毫無線索。改成看檔案存不存在就不會再犯。
+		if file, ok := staticFile(c.Request.URL.Path); ok {
+			c.File(file)
+			return
+		}
 		c.File("./static/index.html")
 	})
 
@@ -133,6 +147,22 @@ func setupRoutes(
 // 沒有這段的話 index.html 不帶 Cache-Control，瀏覽器會用「啟發式快取」自己決定
 // 存多久，使用者於是一直拿到舊版的 index —— 而它指向的是上一版的 chunk 檔名，
 // 等於每次部署都有人看到舊畫面。
+// staticFile 把網址路徑對應到 ./static 底下的實體檔案。
+// path.Clean 會把 ".." 收斂回根目錄，藉此擋掉目錄穿越。
+func staticFile(urlPath string) (string, bool) {
+	clean := path.Clean("/" + strings.TrimPrefix(urlPath, "/"))
+	if clean == "/" {
+		return "", false
+	}
+
+	full := filepath.Join(staticRoot, filepath.FromSlash(clean))
+	info, err := os.Stat(full)
+	if err != nil || info.IsDir() {
+		return "", false
+	}
+	return full, true
+}
+
 func cacheMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path

@@ -9,6 +9,7 @@ import PhotoStrip from '@/components/PhotoStrip.vue'
 import QRCodeDisplay from '@/components/QRCodeDisplay.vue'
 import { useGameStore } from '@/stores/game'
 import { useSocketStore } from '@/stores/socket'
+import { useShutterSound } from '@/composables/useShutterSound'
 import { celebrate } from '@/utils/confetti'
 import { on } from '@/utils/bus'
 import { CATEGORY_LABELS } from '@/types'
@@ -43,6 +44,16 @@ const qrExpanded = ref(false)
 // 「最快交卷」要顯示幾張，1~20 都可以，預設 5
 const stripOptions = [1, 3, 5, 8, 10, 12, 15, 20]
 
+// 照片一進來就「喀」一聲。上一聲還在播就停掉重播，連拍時每張都聽得到。
+const {
+  enabled: soundOn,
+  blocked: soundBlocked,
+  play: playShutter,
+  toggle: toggleSound,
+} = useShutterSound()
+
+const offPhoto = on('photo', () => playShutter())
+
 // 示範圖只有部分題目有（目前是團體題）。與其先問後端有沒有，
 // 直接載入、404 就把區塊收起來，房主之後在後台補圖也會自動出現。
 const exampleFailed = ref(false)
@@ -70,7 +81,10 @@ const offRoundResult = on('roundResult', (result) => {
   if (result.winners.length) celebrate()
 })
 
-onBeforeUnmount(offRoundResult)
+onBeforeUnmount(() => {
+  offPhoto()
+  offRoundResult()
+})
 
 const isLastQuestion = computed(
   () => !!question.value && question.value.questionNum >= question.value.totalQuestions,
@@ -138,6 +152,15 @@ const isLastQuestion = computed(
             {{ timeLeft }}
           </span>
         </div>
+
+        <button
+          class="shrink-0 rounded-xl px-2 py-2 text-xl leading-none transition hover:bg-white/10"
+          :title="soundOn ? '關閉快門音效' : '開啟快門音效'"
+          :aria-label="soundOn ? '關閉快門音效' : '開啟快門音效'"
+          @click="toggleSound()"
+        >
+          {{ soundOn ? '🔊' : '🔇' }}
+        </button>
 
         <!-- 隨時可中途加入，所以 QR 全程掛在右上角；點一下可放大給遠處的人掃 -->
         <button class="shrink-0 text-center" @click="qrExpanded = true">
@@ -297,6 +320,14 @@ const isLastQuestion = computed(
         回大廳
       </button>
     </section>
+
+    <!-- 瀏覽器在沒有互動過的頁面會擋掉音訊，給個一次性提示 -->
+    <p
+      v-if="soundOn && soundBlocked"
+      class="pointer-events-none fixed bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-full bg-amber-500/20 px-4 py-2 text-xs text-amber-200"
+    >
+      🔇 點畫面任一處啟用快門音效
+    </p>
 
     <!-- 照片一到就彈出，停 3 秒淡出，新的直接蓋上舊的 -->
     <PhotoPopupLayer v-if="status === 'shooting'" />
