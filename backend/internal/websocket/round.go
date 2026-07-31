@@ -107,8 +107,37 @@ func (h *Hub) closeRound(room *models.Room, reason string) {
 	}
 }
 
+// releaseRoundPhotos 釋放上一題的非得獎照片。
+//
+// 換題時只把 room.RoundPhotos 這個列表清空是不夠的 —— 照片實體還留在照片庫裡，
+// 整場遊戲累積下來會把每間房的配額（預設 300 張 / 80MB）吃光，之後玩家上傳會
+// 直接收到「這個房間的照片已達上限」。20 人玩到第 15 題左右就會發生。
+//
+// 得獎照片要留著，結算頁的照片牆靠它們；其餘的當下已經沒有畫面在用了。
+func (h *Hub) releaseRoundPhotos(room *models.Room) int {
+	keep := make(map[string]bool)
+	for _, result := range room.History {
+		for _, winner := range result.Winners {
+			keep[winner.PhotoID] = true
+		}
+	}
+
+	freed := 0
+	for _, photo := range room.RoundPhotos {
+		if !keep[photo.PhotoID] && h.photoStore.Delete(photo.PhotoID) {
+			freed++
+		}
+	}
+
+	if freed > 0 {
+		log.Printf("🧽 房間 %s 釋放第 %d 題的 %d 張未得獎照片", room.ID, room.CurrentQuestion+1, freed)
+	}
+	return freed
+}
+
 // finishGame 結束整場並送出最終排行榜
 func (h *Hub) finishGame(room *models.Room) {
+	h.releaseRoundPhotos(room)
 	scores := h.gameService.FinishGame(room)
 
 	h.BroadcastToRoom(room.ID, "GAME_FINISHED", map[string]any{
@@ -245,6 +274,9 @@ func (c *Client) handleNextQuestion() {
 		c.sendError("STILL_SHOOTING", "這題還在拍照中")
 		return
 	}
+
+	// 一定要在 NextRound 之前做：它會把 RoundPhotos 清空，之後就找不到要刪哪些了
+	c.hub.releaseRoundPhotos(room)
 
 	if !c.hub.gameService.NextRound(room) {
 		c.hub.finishGame(room)

@@ -120,14 +120,15 @@ func (s *PhotoStore) Get(photoID string) (*Photo, error) {
 	return photo, nil
 }
 
-// Delete 刪掉單張照片（例如玩家重新上傳，舊照片就沒用了）
-func (s *PhotoStore) Delete(photoID string) {
+// Delete 刪掉單張照片（例如玩家重新上傳，舊照片就沒用了）。
+// 回傳是否真的刪到東西 —— 呼叫端統計釋放量時才不會把重複呼叫也算進去。
+func (s *PhotoStore) Delete(photoID string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	photo, ok := s.photos[photoID]
 	if !ok {
-		return
+		return false
 	}
 
 	delete(s.photos, photoID)
@@ -143,6 +144,8 @@ func (s *PhotoStore) Delete(photoID string) {
 			break
 		}
 	}
+
+	return true
 }
 
 // PurgeRoom 房間結束或被清理時，釋放它的所有照片

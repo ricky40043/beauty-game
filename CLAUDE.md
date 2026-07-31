@@ -122,6 +122,16 @@ cd frontend && npm run type-check
 
 **照片不走 WebSocket。** 前端壓縮後 `POST /api/rooms/:roomId/photos`（multipart，欄位 `photo`）拿到 `photoId`，再用 `SUBMIT_PHOTO` 送 id；`maxMessageSize` 因此只有 8KB。
 
+## 記憶體與磁碟的成長界線
+
+會寫進磁碟的只有 `{EXAMPLE_DIR}` 底下的自訂題目（`questions.json`）與自訂示範圖，
+兩者都被題數綁住：題目每筆約 150 bytes、示範圖每題最多一張且上限 4MB。不會無限成長。
+
+玩家照片只在記憶體，每間房有 `MAX_ROOM_PHOTOS`（300 張）與 `MAX_ROOM_BYTES`（80MB）
+上限。**換題時必須呼叫 `releaseRoundPhotos`**：它只清 `room.RoundPhotos` 這個列表是不夠的，
+照片實體留在照片庫裡會累積整場，20 人玩到第 15 題左右就把配額吃光，玩家上傳開始收到
+507「這個房間的照片已達上限」。得獎照片要保留 —— 結算頁的照片牆靠它們。
+
 ## 重要限制
 
 - 手機端用 `h-[100dvh]` + `overflow-hidden` 鎖成一頁。`min-h-screen` 會讓內容超出視窗、底下留一塊黑的，而且網址列伸縮時高度不會跟著變

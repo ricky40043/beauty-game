@@ -29,8 +29,9 @@ func fakeJPEG(size int) []byte {
 }
 
 type testServer struct {
-	http  *httptest.Server
-	wsURL string
+	http   *httptest.Server
+	wsURL  string
+	photos *storage.PhotoStore
 }
 
 func newTestServer(t *testing.T) *testServer {
@@ -68,8 +69,9 @@ func newTestServer(t *testing.T) *testServer {
 	t.Cleanup(srv.Close)
 
 	return &testServer{
-		http:  srv,
-		wsURL: "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws",
+		http:   srv,
+		wsURL:  "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws",
+		photos: photoStore,
 	}
 }
 
@@ -828,4 +830,80 @@ func TestPracticeRound(t *testing.T) {
 		}
 	}
 	t.Fatal("排行榜裡找不到玩家")
+}
+
+// TestPhotosFreedBetweenRounds 換題時要釋放上一題的非得獎照片。
+//
+// 沒有這個機制的話，整場遊戲的照片會一路堆在記憶體裡，把每間房的配額
+// （預設 300 張 / 80MB）吃光 —— 20 人玩到第 15 題左右，玩家上傳就會開始失敗。
+// 得獎照片必須留著，結算頁的照片牆靠它們。
+func TestPhotosFreedBetweenRounds(t *testing.T) {
+	srv := newTestServer(t)
+
+	host := srv.dial(t)
+	host.send("CREATE_ROOM", map[string]any{
+		"hostName": "主持人", "mode": "solo",
+		"totalQuestions": 3, "questionTimeLimit": 60, "questionMode": "random",
+	})
+	roomID, _ := host.await("ROOM_CREATED")["roomId"].(string)
+
+	players := make([]*conn, 3)
+	for i := range players {
+		players[i] = srv.dial(t)
+		players[i].send("JOIN_ROOM", map[string]any{"roomId": roomID})
+		players[i].await("JOIN_SUCCESS")
+	}
+
+	host.send("START_GAME", map[string]any{})
+	host.await("GAME_STARTED")
+
+	winnerPhotoIDs := make([]string, 0, 3)
+	host.await("NEW_QUESTION")
+
+	for round := 1; round <= 3; round++ {
+		roundPhotos := make([]string, 0, 3)
+		for _, p := range players {
+			photoID := srv.uploadPhoto(t, roomID)
+			p.send("SUBMIT_PHOTO", map[string]any{"photoId": photoID})
+			p.await("PHOTO_ACCEPTED")
+			roundPhotos = append(roundPhotos, photoID)
+		}
+		host.await("ROUND_CLOSED")
+
+		// 每題只選一張得獎
+		host.send("PICK_WINNERS", map[string]any{"photoIds": roundPhotos[:1]})
+		host.await("ROUND_RESULT")
+		winnerPhotoIDs = append(winnerPhotoIDs, roundPhotos[0])
+
+		host.send("NEXT_QUESTION", map[string]any{})
+
+		// 等伺服器真的推進到下一題（或收場）再斷言，否則會跟非同步處理搶跑
+		if round < 3 {
+			host.await("NEW_QUESTION")
+		} else {
+			host.await("GAME_FINISHED")
+		}
+
+		// 每題 3 張、只有 1 張得獎，所以做完第 N 題應該只剩 N 張
+		if got, _, _ := srv.photos.Stats(); got != round {
+			t.Fatalf("第 %d 題結束後照片庫應只剩 %d 張得獎照片，實際 %d 張", round, round, got)
+		}
+	}
+
+	// 結算頁的照片牆要讀得到每一張得獎照片
+	for i, photoID := range winnerPhotoIDs {
+		resp, err := srv.http.Client().Get(srv.http.URL + "/api/photos/" + photoID)
+		if err != nil {
+			t.Fatalf("取第 %d 題得獎照片失敗: %v", i+1, err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("第 %d 題的得獎照片被誤刪了，狀態碼 %d", i+1, resp.StatusCode)
+		}
+	}
+
+	// 總共上傳 9 張，只有 3 張得獎，其餘 6 張應該都釋放掉了
+	if got, _, _ := srv.photos.Stats(); got != 3 {
+		t.Fatalf("整場結束後應只剩 3 張得獎照片，實際 %d 張", got)
+	}
 }
