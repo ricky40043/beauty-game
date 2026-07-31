@@ -58,6 +58,22 @@ func main() {
 	}
 
 	questionService := services.NewQuestionService(questionStore)
+
+	// 把資料實際落在哪、載到幾筆印出來。
+	//
+	// 自訂題目與示範圖是這個服務唯一會寫進磁碟的東西，其他（房間、分數、玩家
+	// 照片）都只在記憶體，重啟就沒了 —— 這是刻意的。但也因此，只要 EXAMPLE_DIR
+	// 指到 volume 外面，每次部署就會靜靜地把內容清光而沒有任何錯誤訊息。
+	// 印出絕對路徑與筆數，之後懷疑資料掉了，看這一行就能判斷。
+	absExampleDir, err := filepath.Abs(cfg.ExampleDir)
+	if err != nil {
+		absExampleDir = cfg.ExampleDir
+	}
+	log.Printf("💾 資料目錄 %s（自訂題目 %d 題、自訂示範圖 %d 張）",
+		absExampleDir, questionStore.Count(), len(exampleStore.OverriddenIDs()))
+	if !filepath.IsAbs(cfg.ExampleDir) {
+		log.Printf("⚠️ EXAMPLE_DIR 是相對路徑，會跟著工作目錄跑。容器部署請設成掛載點底下的絕對路徑，否則重新部署資料會不見")
+	}
 	gameService := services.NewGameService()
 	roomService := services.NewRoomService(cfg, questionService)
 

@@ -135,6 +135,16 @@ func (s *QuestionStore) saveLocked() error {
 	return nil
 }
 
+// Count 目前有幾題自訂題目
+func (s *QuestionStore) Count() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.custom)
+}
+
+// Path 設定檔的實際位置
+func (s *QuestionStore) Path() string { return s.path }
+
 // Custom 取得某模式的自訂題目
 func (s *QuestionStore) Custom(mode models.GameMode) []models.Question {
 	s.mu.RLock()
