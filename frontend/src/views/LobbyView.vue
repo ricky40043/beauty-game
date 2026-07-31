@@ -110,8 +110,13 @@ const confirmRename = () => {
 
 <template>
   <!-- ── 主畫面（房主）───────────────────────────────── -->
-  <main v-if="isHost" class="min-h-screen px-6 py-8 lg:px-12">
-    <header class="flex flex-wrap items-center justify-between gap-4">
+  <!--
+    這一頁是投在電視或筆電上給全場看的，所以鎖成一個畫面、不能捲動 ——
+    「開始遊戲」被推到摺線以下的話，房主得先滑一下才找得到。
+    寬螢幕改成橫向雙欄（QR 在左、資訊與開始鍵在右）就塞得下了。
+  -->
+  <main v-if="isHost" class="flex h-[100dvh] flex-col overflow-hidden px-6 py-5 lg:px-12">
+    <header class="flex flex-none flex-wrap items-center justify-between gap-4">
       <div>
         <h1 class="text-3xl font-black lg:text-4xl">💄 今日我最美</h1>
         <p class="mt-1 text-sm text-slate-400">
@@ -123,66 +128,83 @@ const confirmRename = () => {
     </header>
 
     <!--
-      QR 放正中央，而且刻意不顯示題目內容：這一頁是投在大螢幕上給全場看的，
-      把題目清單攤開等於先劇透。房主要確認順序請用「編輯順序」，那是個彈窗。
+      刻意不顯示題目內容：把題目清單攤在大螢幕上等於先劇透。
+      房主要確認順序請用「編輯題目」，那是個彈窗。
     -->
-    <div class="mx-auto mt-6 flex max-w-3xl flex-col items-center gap-6">
-      <QRCodeDisplay :value="shareUrl" :size="520" class="w-[min(46vh,22rem)]" />
-
-      <div class="text-center">
-        <p class="text-sm text-slate-400">房號</p>
-        <p class="text-6xl font-black tracking-[0.2em] text-blush-300 lg:text-7xl">{{ roomId }}</p>
-        <p class="mt-2 text-slate-400">掃碼或輸入房號加入，中途也能進來</p>
+    <div
+      class="mx-auto grid min-h-0 w-full max-w-6xl flex-1 gap-6 overflow-y-auto lg:grid-cols-[auto_1fr] lg:gap-12 lg:overflow-hidden"
+    >
+      <div class="flex items-center justify-center">
+        <QRCodeDisplay :value="shareUrl" :size="520" class="w-[min(42vh,20rem)] lg:w-[min(58vh,24rem)]" />
       </div>
 
-      <button class="btn-ghost px-4 py-2 text-sm" @click="copyLink">複製加入連結</button>
+      <!--
+        這裡不能用 grid 的 items-center 來置中：那會讓這一欄的高度由內容決定、
+        不受列高限制，min-h-0 與底下玩家清單的 overflow-y-auto 就全部失效，
+        人一多就從上下兩端溢出被裁掉（房號和「開始遊戲」都會不見）。
+        改成讓欄位撐滿列高、再用 justify-center 置中，清單才縮得下來。
+      -->
+      <div class="flex min-h-0 flex-col items-center justify-center gap-4 lg:items-start">
+        <div class="flex-none text-center lg:text-left">
+          <p class="text-sm text-slate-400">房號</p>
+          <p class="text-6xl font-black tracking-[0.2em] text-blush-300 lg:text-7xl">{{ roomId }}</p>
+          <p class="mt-1 text-slate-400">掃碼或輸入房號加入，中途也能進來</p>
+        </div>
 
-      <!-- 已加入的玩家 -->
-      <section class="w-full text-center">
-        <p class="text-lg font-bold">
-          已加入 <span class="text-blush-300">{{ players.length }}</span> 人
-          <span v-if="!requireNickname" class="ml-2 text-xs font-normal text-slate-500">
-            系統自動取名
-          </span>
-        </p>
+        <button class="btn-ghost flex-none px-4 py-2 text-sm" @click="copyLink">複製加入連結</button>
 
-        <p v-if="!players.length" class="mt-3 text-slate-400">等待玩家掃碼加入…</p>
+        <!-- 已加入的玩家。人多的時候只讓這一塊自己捲，不要把開始鍵頂出畫面 -->
+        <section class="flex min-h-0 w-full flex-col text-center lg:text-left">
+          <p class="flex-none text-lg font-bold">
+            已加入 <span class="text-blush-300">{{ players.length }}</span> 人
+            <span v-if="!requireNickname" class="ml-2 text-xs font-normal text-slate-500">
+              系統自動取名
+            </span>
+          </p>
 
-        <ul v-else class="mt-3 flex flex-wrap justify-center gap-2">
-          <li
-            v-for="player in players"
-            :key="player.id"
-            class="flex items-center gap-2 rounded-2xl bg-white/5 px-3 py-2"
-            :class="{ 'opacity-40': !player.isConnected }"
+          <p v-if="!players.length" class="mt-2 flex-none text-slate-400">等待玩家掃碼加入…</p>
+
+          <ul
+            v-else
+            class="mt-2 flex min-h-0 flex-wrap justify-center gap-2 overflow-y-auto lg:justify-start"
           >
-            <span class="text-xl">{{ player.avatar }}</span>
-            <span class="font-medium">{{ player.name }}</span>
-          </li>
-        </ul>
-      </section>
+            <li
+              v-for="player in players"
+              :key="player.id"
+              class="flex items-center gap-2 rounded-2xl bg-white/5 px-3 py-2"
+              :class="{ 'opacity-40': !player.isConnected }"
+            >
+              <span class="text-xl">{{ player.avatar }}</span>
+              <span class="font-medium">{{ player.name }}</span>
+            </li>
+          </ul>
+        </section>
 
-      <!-- 只顯示題數，不顯示題目內容 -->
-      <section class="flex flex-wrap items-center justify-center gap-2 text-sm text-slate-400">
-        <span>共 {{ totalQuestions }} 題 · 每題 {{ questionTimeLimit }} 秒</span>
-        <button class="btn-ghost px-3 py-1.5 text-xs" @click="shuffleQuestions">重新隨機</button>
-        <button class="btn-ghost px-3 py-1.5 text-xs" @click="openEditor">編輯題目</button>
-      </section>
+        <!-- 只顯示題數，不顯示題目內容 -->
+        <section
+          class="flex flex-none flex-wrap items-center justify-center gap-2 text-sm text-slate-400 lg:justify-start"
+        >
+          <span>共 {{ totalQuestions }} 題 · 每題 {{ questionTimeLimit }} 秒</span>
+          <button class="btn-ghost px-3 py-1.5 text-xs" @click="shuffleQuestions">重新隨機</button>
+          <button class="btn-ghost px-3 py-1.5 text-xs" @click="openEditor">編輯題目</button>
+        </section>
 
-      <button
-        v-if="gameInProgress"
-        class="btn-primary w-full max-w-md py-5 text-xl"
-        @click="$router.push(`/game/host/${roomId}`)"
-      >
-        回到進行中的遊戲 →
-      </button>
-      <button
-        v-else
-        class="btn-primary w-full max-w-md py-5 text-xl"
-        :disabled="!players.length && !finishedLastGame"
-        @click="start"
-      >
-        {{ finishedLastGame ? '開新的一局' : '開始遊戲' }}
-      </button>
+        <button
+          v-if="gameInProgress"
+          class="btn-primary w-full max-w-md flex-none py-4 text-xl"
+          @click="$router.push(`/game/host/${roomId}`)"
+        >
+          回到進行中的遊戲 →
+        </button>
+        <button
+          v-else
+          class="btn-primary w-full max-w-md flex-none py-4 text-xl"
+          :disabled="!players.length && !finishedLastGame"
+          @click="start"
+        >
+          {{ finishedLastGame ? '開新的一局' : '開始遊戲' }}
+        </button>
+      </div>
     </div>
 
     <!-- 題目編輯 -->
