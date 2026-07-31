@@ -24,6 +24,20 @@ services:
       # 後台上傳/刪除示範圖的密碼。對外服務一定要設，否則任何人都能改圖
       ADMIN_TOKEN: ${ADMIN_TOKEN:?請在 .env 設定 ADMIN_TOKEN}
       EXAMPLE_DIR: /root/data/examples
+      # 照片配額（純記憶體）。一間房的用量 = 累積的得獎照片 + 當前這題的照片；
+      # 換題時非得獎的會被 releaseRoundPhotos 釋放，得獎的要留到結算頁的照片牆。
+      #
+      #   20 題 × 每題 5 名 = 100 張得獎，加上當前題 30 人 = 130 張、約 39MB
+      #   （前端壓到長邊 1080px / JPEG 0.75，一張約 300KB）
+      #
+      # 配額要跟下面的 mem_limit 對得起來：容量 × 同時開的房間數不能超過 mem_limit，
+      # 否則護欄會在正常使用時就被觸發。512MB 要 16 間房同時滿載才碰得到 8GB。
+      MAX_ROOM_PHOTOS: "400"
+      MAX_ROOM_BYTES: "536870912"
+    # 護欄：照片全在記憶體，沒有上限的話失控的房間會把整台 64GB 機器拖下去。
+    # 碰到上限時容器會被 OOM kill 再重啟 —— 進行中的遊戲會沒掉，
+    # 但自訂題目與示範圖在 volume 上，不受影響。
+    mem_limit: 8g
     volumes:
       # 自訂示範圖要活過重新部署，所以掛 named volume。
       # 玩家拍的照片仍然只在記憶體，不會落到這裡。

@@ -127,10 +127,19 @@ cd frontend && npm run type-check
 會寫進磁碟的只有 `{EXAMPLE_DIR}` 底下的自訂題目（`questions.json`）與自訂示範圖，
 兩者都被題數綁住：題目每筆約 150 bytes、示範圖每題最多一張且上限 4MB。不會無限成長。
 
-玩家照片只在記憶體，每間房有 `MAX_ROOM_PHOTOS`（300 張）與 `MAX_ROOM_BYTES`（80MB）
-上限。**換題時必須呼叫 `releaseRoundPhotos`**：它只清 `room.RoundPhotos` 這個列表是不夠的，
+玩家照片只在記憶體，每間房有 `MAX_ROOM_PHOTOS` 與 `MAX_ROOM_BYTES` 上限
+（程式預設 300 張 / 80MB，地端 compose 放大到 400 張 / 512MB）。
+**換題時必須呼叫 `releaseRoundPhotos`**：它只清 `room.RoundPhotos` 這個列表是不夠的，
 照片實體留在照片庫裡會累積整場，20 人玩到第 15 題左右就把配額吃光，玩家上傳開始收到
 507「這個房間的照片已達上限」。得獎照片要保留 —— 結算頁的照片牆靠它們。
+
+抓配額時**張數比容量更容易先撞到**：一間房的用量是「累積的得獎照片 + 當前這題的照片」，
+50 題 × 每題 5 名 = 250 張得獎，加上當前題 30 人就是 280 張，兩個上限要一起調。
+
+配額是在 **request body 整包讀進記憶體之後**才檢查的（`ParseMultipartForm` 一份、
+`io.ReadAll` 再一份），所以被 507 擋掉的上傳一樣付了完整的頻寬與記憶體。
+實測 16 條併發 8MB 上傳、只存下 80MB，RSS 就衝到 1.1GB —— 部署時要留這個瞬間放大的餘裕，
+`docker-compose.yml` 的 `mem_limit` 是為此設的。
 
 ## 重要限制
 
