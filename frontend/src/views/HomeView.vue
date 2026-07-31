@@ -38,11 +38,6 @@ const router = useRouter()
       照片只存在伺服器記憶體，房間結束就整批刪除，不會留檔。
     </p>
 
-    <button
-      class="text-center text-xs text-slate-600 underline underline-offset-4 hover:text-slate-400"
-      @click="router.push('/admin')"
-    >
-      題目示範圖後台
-    </button>
+    <!-- 後台入口刻意不放連結，要直接打 /admin 才進得去 —— 玩家看不到就不會好奇去點 -->
   </main>
 </template>
