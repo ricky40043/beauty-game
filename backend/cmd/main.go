@@ -51,7 +51,13 @@ func main() {
 	}
 	exampleStore.SeedFrom("./data/examples")
 
-	questionService := services.NewQuestionService()
+	// 自訂題目跟示範圖放同一個資料夾，一起被 volume 保護，重新部署不會消失
+	questionStore, err := services.NewQuestionStore(cfg.ExampleDir)
+	if err != nil {
+		log.Fatalf("❌ 無法初始化題目設定: %v", err)
+	}
+
+	questionService := services.NewQuestionService(questionStore)
 	gameService := services.NewGameService()
 	roomService := services.NewRoomService(cfg, questionService)
 
@@ -118,6 +124,12 @@ func setupRoutes(
 			admin.GET("/examples", example.List)
 			admin.POST("/questions/:questionId/example", example.Upload)
 			admin.DELETE("/questions/:questionId/example", example.Delete)
+
+			// 題目管理：新增自己的題目、修改、刪除，內建題可以停用
+			admin.POST("/questions", example.CreateQuestion)
+			admin.PUT("/questions/:questionId", example.UpdateQuestion)
+			admin.DELETE("/questions/:questionId", example.DeleteQuestion)
+			admin.POST("/questions/:questionId/disabled", example.SetQuestionDisabled)
 		}
 	}
 

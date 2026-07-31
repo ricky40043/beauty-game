@@ -92,11 +92,15 @@ func (h *ExampleHandler) List(c *gin.Context) {
 		HasBuiltin bool   `json:"hasBuiltin"`
 		HasCustom  bool   `json:"hasCustom"`
 		ImageURL   string `json:"imageUrl"`
+		Disabled   bool   `json:"disabled"`
 	}
 
-	out := make([]item, 0, 80)
+	// 後台要看得到被停用的題目才能重新啟用，所以這裡不能用 GetBank
+	// （它已經把停用的濾掉了），改成列出全部再標記狀態。
+	out := make([]item, 0, 120)
 	for _, mode := range []models.GameMode{models.ModeGroup, models.ModeSolo} {
-		for _, q := range h.questions.GetBank(mode) {
+		all := append(services.AllQuestions(mode), h.questionStore().Custom(mode)...)
+		for _, q := range all {
 			hasCustom := h.store.Has(q.ID)
 			hasBuiltin := examples.HasBuiltin(q.ID)
 
@@ -110,6 +114,7 @@ func (h *ExampleHandler) List(c *gin.Context) {
 				HasBuiltin: hasBuiltin,
 				HasCustom:  hasCustom,
 				ImageURL:   url,
+				Disabled:   h.questionStore().IsDisabled(q.ID),
 			})
 		}
 	}
@@ -178,4 +183,112 @@ func (h *ExampleHandler) Delete(c *gin.Context) {
 		"questionId":      id,
 		"revertedToBuilt": examples.HasBuiltin(id),
 	})
+}
+
+// ─── 題目管理 ────────────────────────────────────────────
+//
+// 題目原本全部寫死在 Go 程式裡，只有重新編譯才能改。
+// 這裡讓後台可以新增自己的題目，以及停用不想出現的內建題。
+
+type questionPayload struct {
+	Text       string          `json:"text"`
+	Mode       models.GameMode `json:"mode"`
+	Category   string          `json:"category"`
+	Difficulty int             `json:"difficulty"`
+}
+
+// questionStore 後台自訂題目的儲存（跟示範圖的 h.store 是兩回事）
+func (h *ExampleHandler) questionStore() *services.QuestionStore {
+	return h.questions.Store()
+}
+
+// CreateQuestion POST /api/admin/questions
+func (h *ExampleHandler) CreateQuestion(c *gin.Context) {
+	var req questionPayload
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "題目格式錯誤"})
+		return
+	}
+
+	question, err := h.questionStore().Add(req.Text, req.Mode, req.Category, req.Difficulty)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"question": question})
+}
+
+// UpdateQuestion PUT /api/admin/questions/:questionId
+func (h *ExampleHandler) UpdateQuestion(c *gin.Context) {
+	id, ok := questionID(c)
+	if !ok {
+		return
+	}
+
+	var req questionPayload
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "題目格式錯誤"})
+		return
+	}
+
+	question, err := h.questionStore().Update(id, req.Text, req.Category, req.Difficulty)
+	if err != nil {
+		c.JSON(questionErrorStatus(err), gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"question": question})
+}
+
+// DeleteQuestion DELETE /api/admin/questions/:questionId
+// 一併把這題的自訂示範圖清掉，避免編號被回收後接到別人的舊圖
+func (h *ExampleHandler) DeleteQuestion(c *gin.Context) {
+	id, ok := questionID(c)
+	if !ok {
+		return
+	}
+
+	if err := h.questionStore().Delete(id); err != nil {
+		c.JSON(questionErrorStatus(err), gin.H{"error": err.Error()})
+		return
+	}
+
+	h.store.Delete(id)
+	c.JSON(http.StatusOK, gin.H{"questionId": id})
+}
+
+// SetQuestionDisabled POST /api/admin/questions/:questionId/disabled
+// 內建題不能刪，但可以停用讓它不再被抽到
+func (h *ExampleHandler) SetQuestionDisabled(c *gin.Context) {
+	id, ok := questionID(c)
+	if !ok {
+		return
+	}
+
+	var req struct {
+		Disabled bool `json:"disabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "參數格式錯誤"})
+		return
+	}
+
+	if err := h.questionStore().SetDisabled(id, req.Disabled); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"questionId": id, "disabled": req.Disabled})
+}
+
+func questionErrorStatus(err error) int {
+	switch {
+	case errors.Is(err, services.ErrQuestionNotFound):
+		return http.StatusNotFound
+	case errors.Is(err, services.ErrBuiltinNotEditable):
+		return http.StatusForbidden
+	default:
+		return http.StatusBadRequest
+	}
 }

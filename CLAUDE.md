@@ -36,7 +36,8 @@ cd frontend && npm run type-check
 **服務層：**
 - `internal/services/game_service.go` — 回合狀態機與計分。**所有會改動 Room 的動作都必須經過這裡的 mutex**，Hub 與 Client 不直接改 Room 欄位
 - `internal/services/room_service.go` — 記憶體房間 CRUD、玩家進出、自動暱稱、房號產生（去掉 0/O/1/I）
-- `internal/services/question_service.go` / `question_bank.go` — 75 題題庫（solo 50 / group 25）、隨機抽題、自選題序組題
+- `internal/services/question_service.go` / `question_bank.go` — 內建 75 題題庫（solo 50 / group 25）、隨機抽題、自選題序組題
+- `internal/services/question_store.go` — 後台自訂題目與停用清單，落地成 `{EXAMPLE_DIR}/questions.json`（先寫暫存檔再 rename）
 - `internal/storage/photo_store.go` — 記憶體照片庫，magic bytes 驗格式，per-room 張數與容量配額
 - `internal/examples/` — 題目示範圖。`figure.go` 是火柴人 SVG 產生器（肢體用 polyline 畫出關節，頭與臉最後畫才不會被手臂穿過），`scenes.go` 是 25 題團體題的站位設定，`store.go` 是房主自訂圖的磁碟覆寫層
 - `internal/handlers/example_handler.go` — 示範圖讀取（自訂圖優先、退回內建、都沒有 404）與後台上傳/刪除
@@ -62,6 +63,28 @@ cd frontend && npm run type-check
 - `PhotoStrip.vue` — 主畫面常駐「最快前 5 張」縮圖，可點開燈箱
 - `JudgePanel.vue` — 房主評選，點選順序即名次
 - `QuestionPicker.vue` — 建房與大廳共用的題目選擇器（分類、搜尋、排序、自訂題）
+
+## 題庫來源
+
+實際出題的題庫 = **內建題（編譯進程式）+ 後台自訂題（存磁碟）− 被停用的**，由
+`QuestionService.GetBank()` 合併。專案**沒有資料庫**，自訂題目就是一個 JSON 檔。
+
+編號分段刻意錯開，看編號就知道來源：
+
+| 範圍 | 用途 |
+|---|---|
+| 1001~1508 | 內建單人題 |
+| 2001~2025 | 內建團體題 |
+| 9000+ | 房主建房時臨時打的題目（不落地，只存在該房間） |
+| 9999 | 試玩題 |
+| 30000+ | 後台新增的自訂題（落地） |
+
+`questions.json` 存了 `nextId` 並且只增不減。**不能改用「現有最大值 +1」** ——
+示範圖是以題號當檔名，編號被回收的話新題目會接到上一題留下來的圖。
+
+內建題不能改也不能刪（它們在執行檔裡），但可以停用讓它不再被抽到。
+`services.AllQuestions()` 一律只回內建題，後台列表要靠它才看得到被停用的項目
+（`GetBank()` 已經濾掉了）。
 
 ## 題目示範圖
 

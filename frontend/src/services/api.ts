@@ -37,6 +37,14 @@ export interface AdminQuestion extends Question {
   hasBuiltin: boolean
   hasCustom: boolean
   imageUrl: string
+  disabled: boolean
+}
+
+export interface QuestionDraft {
+  text: string
+  mode: GameMode
+  category: string
+  difficulty: number
 }
 
 const ADMIN_TOKEN_KEY = 'beauty_admin_token'
@@ -87,6 +95,49 @@ export async function deleteExample(questionId: number) {
     await fetch(`/api/admin/questions/${questionId}/example`, {
       method: 'DELETE',
       headers: adminHeaders(),
+    }),
+  )
+}
+
+/** 新增一題自訂題目 */
+export async function createQuestion(draft: QuestionDraft): Promise<{ question: Question }> {
+  return unwrap(
+    await fetch('/api/admin/questions', {
+      method: 'POST',
+      headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(draft),
+    }),
+  )
+}
+
+/** 修改自訂題目 */
+export async function updateQuestion(
+  id: number,
+  draft: Omit<QuestionDraft, 'mode'>,
+): Promise<{ question: Question }> {
+  return unwrap(
+    await fetch(`/api/admin/questions/${id}`, {
+      method: 'PUT',
+      headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(draft),
+    }),
+  )
+}
+
+/** 刪除自訂題目（內建題不能刪，只能停用） */
+export async function deleteQuestion(id: number) {
+  return unwrap(
+    await fetch(`/api/admin/questions/${id}`, { method: 'DELETE', headers: adminHeaders() }),
+  )
+}
+
+/** 停用或重新啟用一題 */
+export async function setQuestionDisabled(id: number, disabled: boolean) {
+  return unwrap(
+    await fetch(`/api/admin/questions/${id}/disabled`, {
+      method: 'POST',
+      headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ disabled }),
     }),
   )
 }

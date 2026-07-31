@@ -45,7 +45,11 @@ func newTestServer(t *testing.T) *testServer {
 		MaxRoomPhotos: cfg.Photo.MaxRoomPhotos,
 		MaxRoomBytes:  cfg.Photo.MaxRoomBytes,
 	})
-	questionService := services.NewQuestionService()
+	questionStore, err := services.NewQuestionStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("建立題目儲存失敗: %v", err)
+	}
+	questionService := services.NewQuestionService(questionStore)
 	gameService := services.NewGameService()
 	roomService := services.NewRoomService(cfg, questionService)
 

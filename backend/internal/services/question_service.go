@@ -8,23 +8,46 @@ import (
 	"beauty-game/internal/names"
 )
 
-// QuestionService 負責出題：隨機抽題，或依房主指定的順序組題
-type QuestionService struct{}
-
-// NewQuestionService 建立出題服務
-func NewQuestionService() *QuestionService {
-	return &QuestionService{}
+// QuestionService 負責出題：隨機抽題，或依房主指定的順序組題。
+// 題庫 = 內建題（編譯在程式裡）+ 後台自訂題（存在磁碟），扣掉被停用的。
+type QuestionService struct {
+	store *QuestionStore
 }
 
-// GetBank 取得某模式的完整題庫
+// NewQuestionService 建立出題服務。store 為 nil 時只有內建題。
+func NewQuestionService(store *QuestionStore) *QuestionService {
+	return &QuestionService{store: store}
+}
+
+// Store 取得底層的自訂題目儲存，給後台 handler 用
+func (s *QuestionService) Store() *QuestionStore { return s.store }
+
+// GetBank 取得某模式目前可用的完整題庫（內建 + 自訂 − 停用）
 func (s *QuestionService) GetBank(mode models.GameMode) []models.Question {
-	return AllQuestions(mode)
+	builtin := AllQuestions(mode)
+
+	if s.store == nil {
+		return builtin
+	}
+
+	out := make([]models.Question, 0, len(builtin))
+	for _, q := range builtin {
+		if !s.store.IsDisabled(q.ID) {
+			out = append(out, q)
+		}
+	}
+	for _, q := range s.store.Custom(mode) {
+		if !s.store.IsDisabled(q.ID) {
+			out = append(out, q)
+		}
+	}
+	return out
 }
 
 // BuildRandom 隨機抽題。difficulty 為 "basic" 時只抽基礎題，其餘視為混合。
 // 題庫不夠時會循環補題，確保一定湊得到 count 題。
 func (s *QuestionService) BuildRandom(mode models.GameMode, count int, difficulty string) []models.Question {
-	pool := AllQuestions(mode)
+	pool := s.GetBank(mode)
 
 	if difficulty == "basic" {
 		filtered := pool[:0:0]
@@ -40,6 +63,10 @@ func (s *QuestionService) BuildRandom(mode models.GameMode, count int, difficult
 
 	if count <= 0 {
 		count = 10
+	}
+	if len(pool) == 0 {
+		// 全部題目都被停用時的保險，至少讓遊戲開得起來
+		return []models.Question{models.PracticeQuestion}
 	}
 
 	rand.Shuffle(len(pool), func(i, j int) { pool[i], pool[j] = pool[j], pool[i] })
@@ -63,7 +90,7 @@ func (s *QuestionService) BuildRandom(mode models.GameMode, count int, difficult
 // questionIDs 是題庫題目（順序即遊玩順序），customTexts 是房主自己打的題目，接在後面。
 func (s *QuestionService) BuildCustom(mode models.GameMode, questionIDs []int, customTexts []string) []models.Question {
 	byID := make(map[int]models.Question)
-	for _, q := range AllQuestions(mode) {
+	for _, q := range s.GetBank(mode) {
 		byID[q.ID] = q
 	}
 
