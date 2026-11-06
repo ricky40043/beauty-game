@@ -68,7 +68,7 @@ const canConfirm = computed(() => picked.value.length > 0)
       <div>
         <h2 class="text-2xl font-black">選出今日最美</h2>
         <p class="mt-1 text-sm text-slate-400">
-          點照片放大，按「投票給這張」決定名次（{{ maxWinners > 0 ? `最多 ${maxWinners} 張` : '全部都可以排' }}），投的順序就是名次。
+          點照片看大圖，按照片下方「投給它」決定名次（{{ maxWinners > 0 ? `最多 ${maxWinners} 張` : '全部都可以排' }}），投的順序就是名次。
         </p>
       </div>
       <p class="text-sm text-slate-400">
@@ -98,6 +98,16 @@ const canConfirm = computed(() => picked.value.length > 0)
             <span class="truncate">{{ photo.playerAvatar }} {{ photo.playerName }}</span>
             <span class="shrink-0 text-slate-400">#{{ photo.order }}</span>
           </span>
+        </button>
+
+        <!-- 跟拍照中的縮圖列同一套：點照片看大圖，底下這顆才是投票 -->
+        <button
+          class="mt-1.5 w-full rounded-xl py-2 text-base font-bold transition"
+          :class="rankOf(photo.photoId) ? 'bg-blush-500 text-white' : 'bg-white/10 text-slate-200 hover:bg-white/20'"
+          :disabled="!rankOf(photo.photoId) && picked.length >= limit"
+          @click="toggle(photo.photoId)"
+        >
+          {{ rankOf(photo.photoId) ? `第 ${rankOf(photo.photoId)} 名 ✕` : picked.length >= limit ? '名額已滿' : '投給它' }}
         </button>
 
         <!-- 名次要一眼看得出來：大數字為主，分數只是小字附註 -->
@@ -131,7 +141,7 @@ const canConfirm = computed(() => picked.value.length > 0)
           class="btn-ghost w-full max-w-md py-5 text-2xl"
           @click="vote(photo.photoId)"
         >
-          取消選擇（目前第 {{ rankOf(photo.photoId) }} 名）
+          取消（目前第 {{ rankOf(photo.photoId) }} 名）
         </button>
         <button
           v-else
@@ -139,7 +149,7 @@ const canConfirm = computed(() => picked.value.length > 0)
           :disabled="picked.length >= limit"
           @click="vote(photo.photoId)"
         >
-          {{ picked.length >= limit ? `名額已滿（最多 ${limit} 名）` : `🗳 投票給這張（第 ${picked.length + 1} 名）` }}
+          {{ picked.length >= limit ? `名額已滿（最多 ${limit} 名）` : `🗳 投給它（第 ${picked.length + 1} 名）` }}
         </button>
       </template>
     </PhotoLightbox>

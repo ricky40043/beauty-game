@@ -42,7 +42,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       </p>
     </div>
 
-    <!-- 呼叫端可以在這裡放動作，例如評選時的「投票給這張」 -->
+    <!-- 呼叫端可以在這裡放動作，例如評選時的「投給它」 -->
     <slot :photo="current" />
 
     <div class="flex items-center gap-3">
