@@ -450,7 +450,9 @@ func (c *Client) handleUpdateSettings(data any) {
 		if req.Categories != nil {
 			categories = *req.Categories
 		}
-		questions = c.hub.questionService().BuildRandom(room.Mode, req.TotalQuestions, req.Difficulty, categories)
+		// 重抽也避開這間房玩過的題目
+		played := c.hub.roomService.PlayedQuestions(room.ID)
+		questions = c.hub.questionService().BuildRandom(room.Mode, req.TotalQuestions, req.Difficulty, categories, played)
 	}
 
 	if err := c.hub.roomService.UpdateSettings(room.ID, services.SettingsPatch{
@@ -459,6 +461,8 @@ func (c *Client) handleUpdateSettings(data any) {
 		MaxWinners:      req.MaxWinners,
 		ResultSeconds:   req.ResultSeconds,
 		Categories:      req.Categories,
+		QuestionMode:    req.QuestionMode,
+		Difficulty:      req.Difficulty,
 	}, questions); err != nil {
 		c.sendError("UPDATE_FAILED", err.Error())
 		return

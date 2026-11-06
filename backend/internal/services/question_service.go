@@ -47,8 +47,9 @@ func (s *QuestionService) GetBank(mode models.GameMode) []models.Question {
 // BuildRandom 隨機抽題。difficulty 為 "basic" 時只抽基礎題，其餘視為混合。
 // categories 不為空時只從這些分類抽，而且各分類輪流出題、數量平均；
 // 只照整個題庫隨機抽的話，題數多的分類（例如表情）會把題數少的分類淹掉。
+// exclude 是這間房玩過的題目：沒玩過的題目夠用時就只從沒玩過的抽，不夠才允許重複。
 // 題庫不夠時會循環補題，確保一定湊得到 count 題。
-func (s *QuestionService) BuildRandom(mode models.GameMode, count int, difficulty string, categories []string) []models.Question {
+func (s *QuestionService) BuildRandom(mode models.GameMode, count int, difficulty string, categories []string, exclude map[int]bool) []models.Question {
 	pool := s.GetBank(mode)
 
 	if difficulty == "basic" {
@@ -71,11 +72,41 @@ func (s *QuestionService) BuildRandom(mode models.GameMode, count int, difficult
 		return []models.Question{models.PracticeQuestion}
 	}
 
+	if len(exclude) > 0 {
+		fresh := pool[:0:0]
+		for _, q := range pool {
+			if !exclude[q.ID] {
+				fresh = append(fresh, q)
+			}
+		}
+		if countInCategories(fresh, categories) >= count {
+			pool = fresh
+		}
+	}
+
 	if groups := groupByCategory(pool, categories); len(groups) > 0 {
 		return drawBalanced(groups, count)
 	}
 
 	return drawCycling(pool, count)
+}
+
+// countInCategories 題庫裡落在勾選分類的題數；沒勾分類就是全部
+func countInCategories(pool []models.Question, categories []string) int {
+	if len(categories) == 0 {
+		return len(pool)
+	}
+	want := make(map[string]bool, len(categories))
+	for _, c := range categories {
+		want[c] = true
+	}
+	n := 0
+	for _, q := range pool {
+		if want[q.Category] {
+			n++
+		}
+	}
+	return n
 }
 
 // groupByCategory 依勾選的分類分組，順序照勾選順序。勾到的分類在題庫裡沒題目就略過，

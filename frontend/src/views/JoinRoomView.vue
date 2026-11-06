@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { fetchRoom } from '@/services/api'
 import { useSocketStore } from '@/stores/socket'
 import { useUIStore } from '@/stores/ui'
@@ -8,6 +8,7 @@ import { useUIStore } from '@/stores/ui'
 const props = defineProps<{ roomId?: string }>()
 
 const router = useRouter()
+const route = useRoute()
 const socket = useSocketStore()
 const ui = useUIStore()
 
@@ -18,6 +19,28 @@ const checking = ref(false)
 const scanning = ref(false)
 
 let scanner: { stop: () => Promise<void>; clear: () => void } | null = null
+
+/**
+ * 掃 QR code（或點加入連結）進來、房間又不用取名時，直接幫他加入，不必再按一次。
+ * 手動打房號不自動加入：打錯一碼就可能跑進別人的房間。
+ * 被「沒有身分」導過來的（from=orphan）也不自動，可能是主持人自己的舊分頁。
+ */
+const autoJoin = ref(Boolean(props.roomId) && route.query.from !== 'orphan')
+const autoJoining = ref(false)
+const needNickname = computed(() => Boolean(roomInfo.value?.requireNickname))
+
+watch(
+  [roomInfo, () => socket.isConnected],
+  ([info, connected]) => {
+    if (!autoJoin.value || !info || info.requireNickname || !connected) return
+    autoJoin.value = false
+    autoJoining.value = true
+    socket.joinRoom(code.value, '')
+    // 正常會直接跳到大廳；萬一伺服器沒回應，把按鈕還給使用者
+    setTimeout(() => (autoJoining.value = false), 5000)
+  },
+  { immediate: true },
+)
 
 /** 房號滿 6 碼就先問後端這房存不存在，順便知道要不要取名 */
 const checkRoom = async () => {
@@ -72,6 +95,7 @@ const startScan = async () => {
       (decoded: string) => {
         const matched = decoded.match(/\/join\/([A-Z0-9]{6})/i) ?? decoded.match(/^([A-Z0-9]{6})$/i)
         if (matched) {
+          autoJoin.value = true
           code.value = matched[1].toUpperCase()
           stopScan()
         }
@@ -139,15 +163,26 @@ onBeforeUnmount(stopScan)
 
       <label v-if="roomInfo?.requireNickname" class="mt-4 block">
         <span class="text-sm text-slate-300">你的暱稱</span>
-        <input v-model="nickname" class="field mt-2" maxlength="16" placeholder="輸入暱稱" />
+        <input
+          v-model="nickname"
+          class="field mt-2"
+          maxlength="16"
+          placeholder="輸入暱稱"
+          enterkeyhint="done"
+          @keydown.enter.prevent="join"
+        />
       </label>
 
       <p v-else-if="roomInfo" class="mt-4 rounded-2xl bg-slate-900/60 px-4 py-3 text-xs leading-relaxed text-slate-400">
         這個房間不用取名，系統會幫你配一個可愛暱稱，進大廳後可以自己改。
       </p>
 
-      <button class="btn-primary mt-5 w-full py-4 text-lg" :disabled="code.length !== 6" @click="join">
-        加入遊戲
+      <button
+        class="btn-primary mt-5 w-full py-4 text-lg"
+        :disabled="code.length !== 6 || autoJoining"
+        @click="join"
+      >
+        {{ autoJoining ? '正在幫你加入…' : needNickname ? '確定' : '加入遊戲' }}
       </button>
     </section>
   </main>

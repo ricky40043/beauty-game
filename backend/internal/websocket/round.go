@@ -320,10 +320,13 @@ func (c *Client) handleResetToLobby() {
 
 	c.hub.gameService.ResetToLobby(room)
 	c.hub.photoStore.PurgeRoom(room.ID)
+	// 隨機出題的房間換一批沒玩過的題目，不然「再來一局」會是一模一樣的題目
+	c.hub.roomService.MarkPlayedAndRedraw(room.ID)
 
 	c.hub.BroadcastToRoom(room.ID, "ROOM_RESET_TO_LOBBY", map[string]any{
 		"roomId":         room.ID,
 		"totalQuestions": len(room.Questions),
+		"questions":      room.Questions,
 		"players":        room.PlayerList(),
 	})
 }

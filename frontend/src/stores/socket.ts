@@ -133,7 +133,8 @@ export const useSocketStore = defineStore('socket', () => {
       // 不要留在一個沒有名字、0 人的空殼畫面，帶去這間房的加入頁
       if (onRoomPage() && routeRoomId && session?.roomId !== routeRoomId) {
         ui.showInfo('你目前不在這個房間，加入後就能一起玩')
-        navigate(`/join/${routeRoomId}`)
+        // 帶上 from=orphan：這種情況不自動加入，讓使用者自己按（可能是主持人的舊分頁）
+        router.replace({ path: `/join/${routeRoomId}`, query: { from: 'orphan' } }).catch(() => {})
         return
       }
 
@@ -330,6 +331,8 @@ export const useSocketStore = defineStore('socket', () => {
 
       case 'ROOM_RESET_TO_LOBBY':
         game.resetToLobby()
+        // 隨機出題的房間伺服器會換一批題目，題數與題目清單要跟著更新
+        game.setRoom({ totalQuestions: data.totalQuestions, questions: data.questions })
         game.setPlayers(data.players ?? [])
         ui.showSuccess('房主開了新的一局！')
         navigate(`/lobby/${data.roomId}`)

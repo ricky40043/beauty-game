@@ -60,8 +60,12 @@ func (s *RoomService) CreateRoom(req models.CreateRoomRequest) (*models.Room, er
 	}
 
 	var questions []models.Question
+	questionMode := "random"
 	if req.QuestionMode == "custom" {
 		questions = s.questions.BuildCustom(mode, req.QuestionIDs, req.CustomQuestions)
+		if len(questions) > 0 {
+			questionMode = "custom"
+		}
 	}
 	// 自選模式沒選到任何題目時，退回隨機抽題，避免開出一間零題的房
 	if len(questions) == 0 {
@@ -72,7 +76,7 @@ func (s *RoomService) CreateRoom(req models.CreateRoomRequest) (*models.Room, er
 		if total > 50 {
 			total = 50
 		}
-		questions = s.questions.BuildRandom(mode, total, req.Difficulty, req.Categories)
+		questions = s.questions.BuildRandom(mode, total, req.Difficulty, req.Categories, nil)
 	}
 
 	maxWinners := DefaultMaxWinners
@@ -102,6 +106,9 @@ func (s *RoomService) CreateRoom(req models.CreateRoomRequest) (*models.Room, er
 		Players:           make(map[string]*models.Player),
 		Questions:         questions,
 		RandomCategories:  req.Categories,
+		QuestionMode:      questionMode,
+		RandomDifficulty:  req.Difficulty,
+		PlayedQuestionIDs: make(map[int]bool),
 		MaxWinners:        maxWinners,
 		ResultSeconds:     resultSeconds,
 		CurrentQuestion:   -1,
@@ -305,6 +312,12 @@ func (s *RoomService) UpdateSettings(roomID string, patch SettingsPatch, questio
 	if patch.Categories != nil {
 		room.RandomCategories = *patch.Categories
 	}
+	if patch.QuestionMode != "" {
+		room.QuestionMode = patch.QuestionMode
+	}
+	if patch.Difficulty != "" {
+		room.RandomDifficulty = patch.Difficulty
+	}
 	if len(questions) > 0 {
 		room.Questions = questions
 	}
@@ -320,6 +333,60 @@ type SettingsPatch struct {
 	MaxWinners      *int
 	ResultSeconds   *int
 	Categories      *[]string
+	QuestionMode    string
+	Difficulty      string
+}
+
+// MarkPlayedAndRedraw 一局結束回大廳時呼叫：把這局的題目記成玩過，
+// 隨機出題的房間順便重抽一批沒玩過的，下一局才不會又是同一批題目。
+// 自選題目的房間尊重主持人的安排，不動題目。回傳是否重抽了。
+func (s *RoomService) MarkPlayedAndRedraw(roomID string) bool {
+	room, err := s.GetRoom(roomID)
+	if err != nil {
+		return false
+	}
+
+	s.mu.Lock()
+	if room.PlayedQuestionIDs == nil {
+		room.PlayedQuestionIDs = make(map[int]bool)
+	}
+	for _, q := range room.Questions {
+		room.PlayedQuestionIDs[q.ID] = true
+	}
+	if room.QuestionMode != "random" {
+		s.mu.Unlock()
+		return false
+	}
+	played := s.playedCopyLocked(room)
+	mode, count, difficulty := room.Mode, len(room.Questions), room.RandomDifficulty
+	categories := append([]string(nil), room.RandomCategories...)
+	s.mu.Unlock()
+
+	questions := s.questions.BuildRandom(mode, count, difficulty, categories, played)
+
+	s.mu.Lock()
+	room.Questions = questions
+	s.mu.Unlock()
+	return true
+}
+
+// PlayedQuestions 這間房玩過的題目（複本），大廳手動重抽時用來避開
+func (s *RoomService) PlayedQuestions(roomID string) map[int]bool {
+	room, err := s.GetRoom(roomID)
+	if err != nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.playedCopyLocked(room)
+}
+
+func (s *RoomService) playedCopyLocked(room *models.Room) map[int]bool {
+	out := make(map[int]bool, len(room.PlayedQuestionIDs))
+	for id := range room.PlayedQuestionIDs {
+		out[id] = true
+	}
+	return out
 }
 
 // clampResultSeconds 0 代表手動；其餘夾在 1~30 秒

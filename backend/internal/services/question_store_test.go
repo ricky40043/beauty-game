@@ -207,7 +207,7 @@ func TestBuildRandomSurvivesEverythingDisabled(t *testing.T) {
 		_ = store.SetDisabled(q.ID, true)
 	}
 
-	got := svc.BuildRandom(models.ModeGroup, 3, "mixed", nil)
+	got := svc.BuildRandom(models.ModeGroup, 3, "mixed", nil, nil)
 	if len(got) == 0 {
 		t.Fatal("題目全被停用時仍應該回傳至少一題，否則房間開不起來")
 	}
@@ -219,7 +219,7 @@ func TestBuildRandomBalancesCategories(t *testing.T) {
 	cats := []string{models.CategoryStudent, models.CategoryWork, models.CategoryChurch}
 
 	for round := 0; round < 20; round++ {
-		got := svc.BuildRandom(models.ModeSolo, 10, "mixed", cats)
+		got := svc.BuildRandom(models.ModeSolo, 10, "mixed", cats, nil)
 		if len(got) != 10 {
 			t.Fatalf("應該抽 10 題，實際 %d", len(got))
 		}

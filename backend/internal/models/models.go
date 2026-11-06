@@ -127,6 +127,13 @@ type Room struct {
 	// Advancing 這題的結果畫面已經有人（自動計時或房主）負責換題了，另一方不要再換一次
 	Advancing bool `json:"-"`
 
+	// QuestionMode "random" | "custom"。隨機出題的房間「再來一局」會重抽，自選的維持原題
+	QuestionMode string `json:"questionMode"`
+	// RandomDifficulty 隨機抽題的難度設定，再來一局重抽時沿用
+	RandomDifficulty string `json:"-"`
+	// PlayedQuestionIDs 這間房玩過的題目，重抽時優先避開，才不會下一局又是同一批
+	PlayedQuestionIDs map[int]bool `json:"-"`
+
 	// RandomCategories 建房時勾的抽題分類，大廳「重新隨機」要沿用，不然會洗回全部分類
 	RandomCategories []string `json:"randomCategories"`
 

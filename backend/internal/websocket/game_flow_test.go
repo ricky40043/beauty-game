@@ -1037,3 +1037,81 @@ func TestWinnersZip(t *testing.T) {
 		}
 	}
 }
+
+// TestResetDrawsFreshQuestions 隨機出題的房間玩完「再來一局」要換一批沒出過的題目；
+// 自選題目的房間則維持主持人排好的題目
+func TestResetDrawsFreshQuestions(t *testing.T) {
+	srv := newTestServer(t)
+
+	questionIDs := func(raw any) []int {
+		list, _ := raw.([]any)
+		out := make([]int, 0, len(list))
+		for _, item := range list {
+			q, _ := item.(map[string]any)
+			id, _ := q["id"].(float64)
+			out = append(out, int(id))
+		}
+		return out
+	}
+
+	playThrough := func(host *conn, total int) {
+		host.send("START_GAME", map[string]any{})
+		for i := 0; i < total; i++ {
+			host.await("NEW_QUESTION")
+			host.send("END_SHOOTING", map[string]any{})
+			host.await("ROUND_CLOSED")
+		}
+		host.await("GAME_FINISHED")
+	}
+
+	// ── 隨機：勾學生篇（11 題），每局 5 題，連玩兩局不能重複
+	host := srv.dial(t)
+	host.send("CREATE_ROOM", map[string]any{
+		"hostName": "主持人", "mode": "solo", "questionMode": "random",
+		"totalQuestions": 5, "questionTimeLimit": 60, "categories": []string{"student"},
+	})
+	created := host.await("ROOM_CREATED")
+	roomID, _ := created["roomId"].(string)
+	first := questionIDs(created["questions"])
+
+	player := srv.dial(t)
+	player.send("JOIN_ROOM", map[string]any{"roomId": roomID})
+	player.await("JOIN_SUCCESS")
+
+	playThrough(host, 5)
+	host.send("RESET_ROOM_TO_LOBBY", map[string]any{})
+	second := questionIDs(host.await("ROOM_RESET_TO_LOBBY")["questions"])
+
+	if len(second) != 5 {
+		t.Fatalf("第二局應該還是 5 題，實際 %d", len(second))
+	}
+	seen := map[int]bool{}
+	for _, id := range first {
+		seen[id] = true
+	}
+	for _, id := range second {
+		if seen[id] {
+			t.Fatalf("第二局抽到第一局玩過的題目 %d（第一局 %v，第二局 %v）", id, first, second)
+		}
+	}
+
+	// ── 自選：再來一局維持同樣的題目與順序
+	host2 := srv.dial(t)
+	bank := services.AllQuestions(models.ModeSolo)
+	picked := []int{bank[3].ID, bank[1].ID}
+	host2.send("CREATE_ROOM", map[string]any{
+		"hostName": "主持人", "mode": "solo", "questionMode": "custom",
+		"questionIds": picked, "questionTimeLimit": 60,
+	})
+	room2, _ := host2.await("ROOM_CREATED")["roomId"].(string)
+	p2 := srv.dial(t)
+	p2.send("JOIN_ROOM", map[string]any{"roomId": room2})
+	p2.await("JOIN_SUCCESS")
+
+	playThrough(host2, 2)
+	host2.send("RESET_ROOM_TO_LOBBY", map[string]any{})
+	again := questionIDs(host2.await("ROOM_RESET_TO_LOBBY")["questions"])
+	if len(again) != 2 || again[0] != picked[0] || again[1] != picked[1] {
+		t.Fatalf("自選題目再來一局應維持 %v，實際 %v", picked, again)
+	}
+}

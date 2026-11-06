@@ -61,7 +61,7 @@ cd frontend && npm run type-check
 - `CameraCapture.vue` — 主路徑 `getUserMedia` 全螢幕預覽 + 前後鏡頭切換；不可用時自動退回 `<input type="file" capture>`。按快門就直接上傳（沒有確認步驟），失敗才出現「再傳一次」，重拍會覆蓋
 - `PhotoPopupLayer.vue` — 照片彈出停 **3 秒**淡出，隨機 **±30 度**傾斜疊成相片堆。傾斜角走 CSS 變數 `--tilt`，否則進場動畫的 `scale()` 會把旋轉整個覆蓋掉
 - `PhotoStrip.vue` — 主畫面常駐「最快前 5 張」縮圖，可點開燈箱
-- `JudgePanel.vue` — 房主評選，點選順序即名次，徽章以大數字顯示名次、分數小字附註
+- `JudgePanel.vue` — 房主評選：點照片放大，按放大圖下方的「投票給這張」依序給名次（再按是取消），徽章以大數字顯示名次
 - `QuestionPicker.vue` — 建房與大廳共用的題目選擇器（分類、搜尋、排序、自訂題）
 - `ChampionReveal.vue` — 結算時只在主畫面播的冠軍動畫：每題第一名照片快閃（越來越快）→ 停頓 → 冠軍登場，最後讓房主選下載（`WinnersDownload.vue`：每題第 1 名 zip 或 canvas 拼貼圖）或取消。號角與掌聲由 `useCheer.ts` 用 Web Audio 合成，不打包音檔
 
@@ -82,6 +82,9 @@ cd frontend && npm run type-check
 
 `questions.json` 存了 `nextId` 並且只增不減。**不能改用「現有最大值 +1」** ——
 示範圖是以題號當檔名，編號被回收的話新題目會接到上一題留下來的圖。
+
+房間會記住玩過的題目（`Room.PlayedQuestionIDs`）。隨機出題的房間「再來一局」時由 `MarkPlayedAndRedraw`
+換一批沒出過的，大廳手動重抽也會避開；勾選分類裡沒出過的不夠時才允許重複。自選題目的房間維持主持人排的題目。
 
 內建題不能改也不能刪（它們在執行檔裡），但可以停用讓它不再被抽到。
 `services.AllQuestions()` 一律只回內建題，後台列表要靠它才看得到被停用的項目

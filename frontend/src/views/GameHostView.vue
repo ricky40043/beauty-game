@@ -238,7 +238,6 @@ const isLastQuestion = computed(
         :max-winners="maxWinners"
         @confirm="socket.pickWinners($event)"
         @skip="socket.skipRound()"
-        @preview="openLightbox"
       />
     </section>
 

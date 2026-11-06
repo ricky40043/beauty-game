@@ -32,7 +32,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
     <img
       :src="current.url"
       :alt="`${current.playerName} 的投稿`"
-      class="max-h-[72vh] max-w-full rounded-3xl border-4 border-white/90 object-contain shadow-2xl"
+      class="max-h-[62vh] max-w-full rounded-3xl border-4 border-white/90 object-contain shadow-2xl"
     />
 
     <div class="text-center">
@@ -41,6 +41,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         第 {{ current.order }} 個交卷 · {{ current.elapsedSec.toFixed(1) }} 秒
       </p>
     </div>
+
+    <!-- 呼叫端可以在這裡放動作，例如評選時的「投票給這張」 -->
+    <slot :photo="current" />
 
     <div class="flex items-center gap-3">
       <button class="btn-ghost px-4 py-2" @click="step(-1)">← 上一張</button>
