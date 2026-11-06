@@ -14,7 +14,7 @@ const seconds = defineModel<number>('seconds', { required: true })
       <span>
         <span class="text-sm font-semibold">投票模式</span>
         <span class="mt-0.5 block text-xs leading-relaxed text-slate-400">
-          玩家用手機投票（不能投自己），票數排名決定得獎；最快的前 {{ candidates }} 張是候選，
+          玩家用手機投票（不能投自己），票數排名決定得獎、同票時先交的排前面；最快的前 {{ candidates }} 張是候選，
           湊滿就開始 {{ seconds }} 秒投票倒數
         </span>
       </span>

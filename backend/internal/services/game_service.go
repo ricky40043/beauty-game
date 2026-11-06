@@ -442,7 +442,7 @@ func (s *GameService) applyRankedLocked(room *models.Room, entries []rankedEntry
 	return result, scores
 }
 
-// ApplyVotes 投票倒數結束：依票數排名（同票同名次、同票再比誰先交），0 票不算得獎，
+// ApplyVotes 投票倒數結束：依票數排名，同票時先上傳的排前面（拿比較多分），0 票不算得獎，
 // 名次超過得獎名額的不給分。ok = false 代表沒有人得票，呼叫端應當成跳過這題。
 func (s *GameService) ApplyVotes(room *models.Room) (result models.RoundResult, scores []models.ScoreInfo, ok bool) {
 	s.mu.Lock()
@@ -471,12 +471,10 @@ func (s *GameService) ApplyVotes(room *models.Room) (result models.RoundResult, 
 		return candidates[i].Order < candidates[j].Order
 	})
 
+	// 不共用名次：上面已經依「票數多 → 先上傳」排好，同票的先交者自然拿到較前的名次
 	entries := make([]rankedEntry, 0, len(candidates))
 	for i, p := range candidates {
 		rank := i + 1
-		if i > 0 && counts[p.PlayerID] == counts[candidates[i-1].PlayerID] {
-			rank = entries[i-1].rank
-		}
 		if room.MaxWinners > 0 && rank > room.MaxWinners {
 			break
 		}

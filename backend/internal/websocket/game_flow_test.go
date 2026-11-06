@@ -1270,3 +1270,53 @@ func TestNoUploadAfterCloseAndSkipWhileShooting(t *testing.T) {
 		t.Fatalf("第 3 題的第一張應該是第 1 個交，實際 %v", accepted["order"])
 	}
 }
+
+// TestVoteTieGoesToEarlierUpload 投票同票時，先上傳的人名次較前、分數較多
+func TestVoteTieGoesToEarlierUpload(t *testing.T) {
+	srv := newTestServer(t)
+
+	host := srv.dial(t)
+	host.send("CREATE_ROOM", map[string]any{
+		"hostName": "主持人", "mode": "solo", "questionMode": "random",
+		"totalQuestions": 1, "questionTimeLimit": 60,
+		"voteMode": true, "voteCandidates": 2, "voteSeconds": 5, "resultSeconds": 0,
+	})
+	roomID, _ := host.await("ROOM_CREATED")["roomId"].(string)
+
+	join := func() (*conn, string) {
+		p := srv.dial(t)
+		p.send("JOIN_ROOM", map[string]any{"roomId": roomID})
+		id, _ := p.await("JOIN_SUCCESS")["playerId"].(string)
+		return p, id
+	}
+	first, firstID := join()
+	second, secondID := join()
+
+	host.send("START_GAME", map[string]any{})
+	host.await("NEW_QUESTION")
+
+	first.send("SUBMIT_PHOTO", map[string]any{"photoId": srv.uploadPhoto(t, roomID)})
+	first.await("PHOTO_ACCEPTED")
+	second.send("SUBMIT_PHOTO", map[string]any{"photoId": srv.uploadPhoto(t, roomID)})
+	host.await("VOTING_STARTED")
+
+	// 互投，各 1 票
+	first.send("CAST_VOTE", map[string]any{"targetPlayerId": secondID})
+	first.await("VOTE_ACCEPTED")
+	second.send("CAST_VOTE", map[string]any{"targetPlayerId": firstID})
+	second.await("VOTE_ACCEPTED")
+
+	result := waitFor(t, host, "ROUND_RESULT", 9*time.Second)
+	winners, _ := result["winners"].([]any)
+	if len(winners) != 2 {
+		t.Fatalf("應該 2 位得獎，實際 %d", len(winners))
+	}
+	w1, _ := winners[0].(map[string]any)
+	w2, _ := winners[1].(map[string]any)
+	if w1["playerId"] != firstID || w1["rank"] != float64(1) || w1["points"] != float64(100) {
+		t.Fatalf("同票時先上傳的應該第 1 名 100 分，實際 %v", w1)
+	}
+	if w2["playerId"] != secondID || w2["rank"] != float64(2) || w2["points"] != float64(80) {
+		t.Fatalf("同票時後上傳的應該第 2 名 80 分，實際 %v", w2)
+	}
+}
