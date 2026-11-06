@@ -381,11 +381,19 @@ func (c *Client) handleSkipRound() {
 		return
 	}
 
-	if room.Status != models.RoomStatusJudging {
-		c.sendError("NOT_JUDGING", "現在不是評選階段")
+	// 拍照中、投票中、評選中都能跳過這一題；試玩不算題目，要用「結束試玩」
+	switch {
+	case room.InPractice:
+		c.sendError("IN_PRACTICE", "試玩回合請按「結束試玩」")
+		return
+	case room.Status != models.RoomStatusJudging &&
+		room.Status != models.RoomStatusShooting &&
+		room.Status != models.RoomStatusVoting:
+		c.sendError("NOT_JUDGING", "現在不能跳過")
 		return
 	}
 
+	// SkipRound 會把狀態改成公布結果，還在跑的拍照／投票倒數下一次 tick 就會自己停掉
 	c.hub.skipAndAdvance(room)
 }
 

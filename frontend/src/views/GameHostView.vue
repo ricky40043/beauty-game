@@ -9,12 +9,14 @@ import PhotoStrip from '@/components/PhotoStrip.vue'
 import QRCodeDisplay from '@/components/QRCodeDisplay.vue'
 import { useGameStore } from '@/stores/game'
 import { useSocketStore } from '@/stores/socket'
+import { useUIStore } from '@/stores/ui'
 import { useShutterSound } from '@/composables/useShutterSound'
 import { celebrate } from '@/utils/confetti'
 import { on } from '@/utils/bus'
 import { CATEGORY_LABELS } from '@/types'
 
 const game = useGameStore()
+const ui = useUIStore()
 const socket = useSocketStore()
 const router = useRouter()
 
@@ -57,6 +59,18 @@ const lightboxIndex = ref(-1)
 // 這個遊戲隨時可以中途加入，所以 QR code 全程都留在右上角
 const shareUrl = computed(() => joinUrl.value || `${window.location.origin}/join/${roomId.value}`)
 const qrExpanded = ref(false)
+const copied = ref(false)
+
+const copyShareUrl = async () => {
+  try {
+    await navigator.clipboard.writeText(shareUrl.value)
+    copied.value = true
+    setTimeout(() => (copied.value = false), 2000)
+  } catch {
+    // 非 HTTPS 或權限被擋時拿不到剪貼簿，連結文字本身可以手動全選複製
+    ui.showError('沒辦法自動複製，請直接選取連結文字')
+  }
+}
 
 // 「最快交卷」要顯示幾張，1~20 都可以，預設 5
 const stripOptions = [1, 3, 5, 8, 10, 12, 15, 20]
@@ -85,6 +99,12 @@ watch(
 )
 
 const openLightbox = (index: number) => (lightboxIndex.value = index)
+
+/** 跳過這一題：不收照片、不計分，直接下一題（最後一題就結算） */
+const skipQuestion = () => {
+  if (submittedCount.value > 0 && !window.confirm('已經有人交照片了，確定要跳過這一題嗎？')) return
+  socket.skipRound()
+}
 
 /** 收桌後評選畫面要先放大哪一張（房主在拍照中點的那張） */
 const judgeStartPhotoId = ref('')
@@ -264,6 +284,9 @@ const isLastQuestion = computed(
         <button v-if="isPractice" class="btn-primary px-8 py-3" @click="socket.endPractice()">
           結束試玩，開始第 1 題 →
         </button>
+        <button v-else class="btn-ghost px-6 py-3" @click="skipQuestion">
+          {{ isLastQuestion ? '跳過這一題，直接結算 →' : '跳過這一題 →' }}
+        </button>
       </div>
     </section>
 
@@ -293,6 +316,11 @@ const isLastQuestion = computed(
           </div>
         </li>
       </TransitionGroup>
+      <div class="flex justify-end">
+        <button class="btn-ghost px-6 py-3" @click="skipQuestion">
+          {{ isLastQuestion ? '跳過這一題，直接結算 →' : '跳過這一題 →' }}
+        </button>
+      </div>
     </section>
 
     <section v-else-if="status === 'judging'" class="mt-6 min-h-0 flex-1">
@@ -420,9 +448,16 @@ const isLastQuestion = computed(
       @click="qrExpanded = false"
     >
       <!-- 刻意用不透明背景：放大 QR 時要把題目完全蓋住，不能讓還沒加入的人先看到題目 -->
-      <QRCodeDisplay :value="shareUrl" :size="720" class="w-[min(64vh,64vw)]" />
+      <QRCodeDisplay :value="shareUrl" :size="720" class="w-[min(56vh,64vw)]" />
       <p class="text-6xl font-black tracking-[0.2em] text-blush-300">{{ roomId }}</p>
-      <p class="text-sm text-slate-600">點任一處關閉</p>
+      <!-- 連結區塊點了不要關掉放大畫面，方便選取或複製 -->
+      <div class="flex w-full max-w-2xl items-center gap-3 rounded-2xl bg-white/5 p-2 pl-4" @click.stop>
+        <span class="min-w-0 flex-1 select-all truncate font-mono text-lg text-slate-200">{{ shareUrl }}</span>
+        <button class="btn-primary shrink-0 px-5 py-2.5" @click="copyShareUrl">
+          {{ copied ? '✅ 已複製' : '複製連結' }}
+        </button>
+      </div>
+      <p class="text-sm text-slate-600">點其他地方關閉</p>
     </div>
 
     <PhotoLightbox
@@ -431,7 +466,15 @@ const isLastQuestion = computed(
       :index="lightboxIndex"
       @update:index="lightboxIndex = $event"
       @close="closeLightbox"
-    />
+    >
+      <!-- 這個燈箱只在試玩時出現（正式題點照片會直接進評分），講清楚為什麼沒有投票鈕 -->
+      <div v-if="isPractice" class="w-full max-w-md text-center">
+        <p class="text-sm text-amber-300">試玩回合不計分，大家可以一直上傳，這裡沒有投票</p>
+        <button class="btn-primary mt-3 w-full py-4 text-xl" @click="closeLightbox(); socket.endPractice()">
+          結束試玩，開始第 1 題 →
+        </button>
+      </div>
+    </PhotoLightbox>
   </main>
 </template>
 

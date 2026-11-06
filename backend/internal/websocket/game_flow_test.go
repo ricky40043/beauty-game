@@ -1223,3 +1223,50 @@ func waitFor(t *testing.T, c *conn, msgType string, timeout time.Duration) map[s
 		}
 	}
 }
+
+// TestNoUploadAfterCloseAndSkipWhileShooting 房主收桌（點照片評分）後其他人不能再上傳；
+// 拍照中也能直接跳過這一題
+func TestNoUploadAfterCloseAndSkipWhileShooting(t *testing.T) {
+	srv := newTestServer(t)
+
+	host := srv.dial(t)
+	host.send("CREATE_ROOM", map[string]any{
+		"hostName": "主持人", "mode": "solo", "questionMode": "random",
+		"totalQuestions": 3, "questionTimeLimit": 60,
+	})
+	roomID, _ := host.await("ROOM_CREATED")["roomId"].(string)
+
+	a := srv.dial(t)
+	a.send("JOIN_ROOM", map[string]any{"roomId": roomID})
+	a.await("JOIN_SUCCESS")
+	b := srv.dial(t)
+	b.send("JOIN_ROOM", map[string]any{"roomId": roomID})
+	b.await("JOIN_SUCCESS")
+
+	host.send("START_GAME", map[string]any{})
+	host.await("NEW_QUESTION")
+
+	// 第 1 題：A 交了，房主點照片（END_SHOOTING）→ B 再交要被擋
+	a.send("SUBMIT_PHOTO", map[string]any{"photoId": srv.uploadPhoto(t, roomID)})
+	a.await("PHOTO_ACCEPTED")
+	host.send("END_SHOOTING", map[string]any{})
+	host.await("ROUND_CLOSED")
+	b.send("SUBMIT_PHOTO", map[string]any{"photoId": srv.uploadPhoto(t, roomID)})
+	if msg := waitFor(t, b, "ERROR", 3*time.Second); msg["code"] != "NOT_SHOOTING" {
+		t.Fatalf("收桌後上傳應該被擋，實際 %v", msg)
+	}
+	host.send("SKIP_ROUND", map[string]any{})
+	if num, _ := host.await("NEW_QUESTION")["questionNum"].(float64); num != 2 {
+		t.Fatalf("評選中跳過應該進第 2 題，實際 %v", num)
+	}
+
+	// 第 2 題：拍照中直接跳過，應該馬上到第 3 題，舊的拍照倒數不能再收桌
+	host.send("SKIP_ROUND", map[string]any{})
+	if num, _ := host.await("NEW_QUESTION")["questionNum"].(float64); num != 3 {
+		t.Fatalf("拍照中跳過應該進第 3 題，實際 %v", num)
+	}
+	a.send("SUBMIT_PHOTO", map[string]any{"photoId": srv.uploadPhoto(t, roomID)})
+	if accepted := a.await("PHOTO_ACCEPTED"); accepted["order"] != float64(1) {
+		t.Fatalf("第 3 題的第一張應該是第 1 個交，實際 %v", accepted["order"])
+	}
+}

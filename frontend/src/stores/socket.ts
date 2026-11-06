@@ -40,6 +40,28 @@ const stores = (): Storage[] => {
   return out
 }
 
+/** 目前頁面載入的主程式檔名，例如 /assets/index-CmRQZF8y.js */
+const loadedEntry = () =>
+  document.querySelector<HTMLScriptElement>('script[type="module"][src*="/assets/index-"]')?.getAttribute('src') ?? ''
+
+/** 伺服器上的 index.html 指向的主程式跟這頁載入的不同，代表部署了新版 */
+export async function isStaleBuild(): Promise<boolean> {
+  const mine = loadedEntry()
+  if (!mine) return false // 開發模式沒有打包檔名，不檢查
+  try {
+    const html = await (await fetch('/', { cache: 'no-store' })).text()
+    const latest = html.match(/\/assets\/index-[^"']+\.js/)?.[0]
+    if (!latest || latest === mine) return false
+    // 同一個新版本只自動重新載入一次：萬一載回來還是舊的（例如 CDN 快取），不要無限重整
+    const KEY = 'beauty_reloaded_for'
+    if (sessionStorage.getItem(KEY) === latest) return false
+    sessionStorage.setItem(KEY, latest)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function loadSession(): StoredSession | null {
   for (const store of stores()) {
     const raw = store.getItem(SESSION_KEY)
@@ -109,6 +131,9 @@ export const useSocketStore = defineStore('socket', () => {
     navigate('/')
   }
 
+  /** 這個分頁連上過伺服器；之後再連上就是重連 */
+  let hadConnection = false
+
   const connect = () => {
     shouldReconnect.value = true
 
@@ -118,8 +143,17 @@ export const useSocketStore = defineStore('socket', () => {
     socket.value = ws
 
     ws.onopen = async () => {
+      const wasReconnect = reconnectAttempts.value > 0 || hadConnection
+      hadConnection = true
       isConnected.value = true
       reconnectAttempts.value = 0
+
+      // 斷線重連最常見的原因是剛部署新版、伺服器重啟。開著的分頁還在跑舊程式，
+      // 會出現「畫面跟說明不一樣」的怪事，所以發現版本換了就整頁重新載入（身分有存，不會掉）
+      if (wasReconnect && (await isStaleBuild())) {
+        window.location.reload()
+        return
+      }
 
       // 剛開頁時 WebSocket 可能比路由先就緒，這時 currentRoute 還是起始的 "/"，
       // 判斷不出自己在加入頁還是大廳，會把房主瀏覽器開的加入連結拉回主畫面
