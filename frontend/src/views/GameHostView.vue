@@ -33,6 +33,7 @@ const {
   roundResult,
   scores,
   isPractice,
+  maxWinners,
 } = storeToRefs(game)
 
 const lightboxIndex = ref(-1)
@@ -233,6 +234,7 @@ const isLastQuestion = computed(
       <JudgePanel
         :photos="roundPhotos"
         :question-text="question?.text ?? ''"
+        :max-winners="maxWinners"
         @confirm="socket.pickWinners($event)"
         @skip="socket.skipRound()"
         @preview="openLightbox"

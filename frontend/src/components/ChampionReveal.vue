@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useCheer } from '@/composables/useCheer'
 import { useShutterSound } from '@/composables/useShutterSound'
-import { celebrate, celebrateFinale } from '@/utils/confetti'
+import { celebrate, celebrateFinale, clearConfetti } from '@/utils/confetti'
 
 export interface Highlight {
   url: string
@@ -30,6 +30,9 @@ type Phase = 'intro' | 'flash' | 'hush' | 'reveal'
 const phase = ref<Phase>('intro')
 /** 已經砸上畫面的照片張數 */
 const shown = ref(0)
+/** 冠軍登場的動畫播完，才把下載／取消按鈕放出來，不然會搶走揭曉的焦點 */
+const showActions = ref(false)
+const downloading = ref('')
 
 const shutter = useShutterSound()
 const cheer = useCheer()
@@ -92,7 +95,40 @@ const reveal = () => {
   later(350, () => cheer.applause())
   celebrate()
   later(500, celebrateFinale)
-  later(5200, finish)
+  later(2200, () => (showActions.value = true))
+}
+
+const EXTENSIONS: Record<string, string> = {
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+}
+
+/**
+ * 下載冠軍照片。照片 URL 跟頁面同源，但 <a download> 直接指向它時，
+ * 伺服器回的 Content-Disposition 與副檔名不一定對，所以先抓成 blob 再自己命名。
+ */
+const download = async (champ: Champion) => {
+  if (!champ.photoUrl || downloading.value) return
+  downloading.value = champ.playerId
+  try {
+    const res = await fetch(champ.photoUrl)
+    if (!res.ok) throw new Error(`下載失敗：${res.status}`)
+    const blob = await res.blob()
+    const href = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = href
+    a.download = `今日最美冠軍-${champ.playerName}.${EXTENSIONS[blob.type] ?? 'jpg'}`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(href), 10_000)
+  } catch {
+    // 抓不到 blob（例如照片已被清掉）就退回開新分頁，至少還能手動另存
+    window.open(champ.photoUrl, '_blank')
+  } finally {
+    downloading.value = ''
+  }
 }
 
 const runFlash = () => {
@@ -131,6 +167,7 @@ const skip = () => {
 }
 
 onMounted(async () => {
+  clearConfetti()
   const urls = [
     ...props.highlights.map((h) => h.url),
     ...props.champions.flatMap((c) => (c.photoUrl ? [c.photoUrl] : [])),
@@ -146,7 +183,7 @@ onBeforeUnmount(() => timers.forEach(clearTimeout))
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 overflow-hidden bg-slate-950 text-white" @click="phase === 'reveal' && skip()">
+  <div class="fixed inset-0 z-50 overflow-hidden bg-slate-950 text-white">
     <!-- 聚光燈 -->
     <div class="spotlight pointer-events-none absolute inset-0" :class="{ 'opacity-0': phase === 'hush' }" />
 
@@ -229,11 +266,33 @@ onBeforeUnmount(() => timers.forEach(clearTimeout))
       </div>
     </div>
 
+    <!-- 頒獎完：下載冠軍照片或取消 -->
+    <Transition name="rise">
+      <div
+        v-if="showActions"
+        class="absolute inset-x-0 bottom-8 flex flex-wrap items-center justify-center gap-3 px-6"
+      >
+        <template v-for="champ in champions" :key="champ.playerId">
+          <button
+            v-if="champ.photoUrl"
+            class="btn-primary px-6 py-3 text-lg"
+            :disabled="!!downloading"
+            @click="download(champ)"
+          >
+            {{ downloading === champ.playerId ? '下載中…' : '⬇ 下載冠軍照片' }}
+            <span v-if="champions.length > 1" class="text-sm opacity-80">（{{ champ.playerName }}）</span>
+          </button>
+        </template>
+        <button class="btn-ghost px-6 py-3 text-lg" @click="skip">取消</button>
+      </div>
+    </Transition>
+
     <button
+      v-if="phase !== 'reveal'"
       class="absolute bottom-5 right-5 rounded-full bg-white/10 px-4 py-2 text-sm text-white/70 backdrop-blur transition hover:bg-white/20"
-      @click.stop="skip"
+      @click="skip"
     >
-      {{ phase === 'reveal' ? '看排行榜 →' : '跳過' }}
+      跳過
     </button>
   </div>
 </template>
@@ -250,6 +309,14 @@ onBeforeUnmount(() => timers.forEach(clearTimeout))
 .fade-leave-to {
   opacity: 0;
   transform: scale(1.08);
+}
+
+.rise-enter-active {
+  transition: opacity 0.5s, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.rise-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
 }
 
 .intro-title {
@@ -336,7 +403,7 @@ onBeforeUnmount(() => timers.forEach(clearTimeout))
 
 @keyframes flash {
   from {
-    opacity: 0.55;
+    opacity: 0.3;
   }
   to {
     opacity: 0;

@@ -75,6 +75,11 @@ func (s *RoomService) CreateRoom(req models.CreateRoomRequest) (*models.Room, er
 		questions = s.questions.BuildRandom(mode, total, req.Difficulty, req.Categories)
 	}
 
+	maxWinners := DefaultMaxWinners
+	if req.MaxWinners != nil {
+		maxWinners = clampMaxWinners(*req.MaxWinners)
+	}
+
 	hostName := names.Sanitize(req.HostName)
 	if hostName == "" {
 		hostName = "主持人"
@@ -93,6 +98,7 @@ func (s *RoomService) CreateRoom(req models.CreateRoomRequest) (*models.Room, er
 		Players:           make(map[string]*models.Player),
 		Questions:         questions,
 		RandomCategories:  req.Categories,
+		MaxWinners:        maxWinners,
 		CurrentQuestion:   -1,
 		QuestionTimeLimit: timeLimit,
 		History:           make([]models.RoundResult, 0),
@@ -264,7 +270,7 @@ func (s *RoomService) Touch(roomID string) {
 }
 
 // UpdateSettings 大廳調整設定（題數 / 秒數 / 取名開關 / 重新編排題目）
-func (s *RoomService) UpdateSettings(roomID string, timeLimit int, requireNickname *bool, questions []models.Question) error {
+func (s *RoomService) UpdateSettings(roomID string, timeLimit int, requireNickname *bool, maxWinners *int, categories *[]string, questions []models.Question) error {
 	room, err := s.GetRoom(roomID)
 	if err != nil {
 		return err
@@ -273,7 +279,9 @@ func (s *RoomService) UpdateSettings(roomID string, timeLimit int, requireNickna
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if room.Status != models.RoomStatusWaiting {
+	// 上一局結束（finished）回到大廳時也要能改：ResetToLobby 不動題目與設定，
+	// 先改好再按「開新的一局」，改的東西會直接帶進下一局
+	if room.Status != models.RoomStatusWaiting && room.Status != models.RoomStatusFinished {
 		return errors.New("遊戲進行中無法修改設定")
 	}
 
@@ -283,12 +291,29 @@ func (s *RoomService) UpdateSettings(roomID string, timeLimit int, requireNickna
 	if requireNickname != nil {
 		room.RequireNickname = *requireNickname
 	}
+	if maxWinners != nil {
+		room.MaxWinners = clampMaxWinners(*maxWinners)
+	}
+	if categories != nil {
+		room.RandomCategories = *categories
+	}
 	if len(questions) > 0 {
 		room.Questions = questions
 	}
 
 	room.LastActivity = time.Now()
 	return nil
+}
+
+// clampMaxWinners 0 代表不限；其餘夾在 1~50，超過一間房實際會有的人數也沒意義
+func clampMaxWinners(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	if n > 50 {
+		return 50
+	}
+	return n
 }
 
 // DeleteRoom 刪除房間

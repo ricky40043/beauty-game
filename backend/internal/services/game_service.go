@@ -14,8 +14,10 @@ const (
 	PointsForUpload = 10
 	// PointsGroupBonus 團體模式該回合有得獎時，全場每人的合作分
 	PointsGroupBonus = 50
-	// MaxWinnersPerRound 房主每題最多可以選幾張得獎
-	MaxWinnersPerRound = 5
+	// DefaultMaxWinners 建房沒指定時，每題最多可以選幾張得獎
+	DefaultMaxWinners = 5
+	// PointsLowerRanks 第 6 名以後的得獎分：名額開到全部時，被點到的人還是要比沒被點到的多一點
+	PointsLowerRanks = 10
 )
 
 var (
@@ -35,7 +37,7 @@ var (
 	// ErrNotJudging 目前不是評選階段
 	ErrNotJudging = errors.New("現在不是評選階段")
 	// ErrInvalidWinners 得獎張數不合法
-	ErrInvalidWinners = errors.New("請選 1~5 張照片")
+	ErrInvalidWinners = errors.New("得獎張數不合法，超過這間房設定的名額")
 )
 
 // GameService 掌管回合狀態機與計分。所有會改動房間的動作都經過這裡的鎖。
@@ -253,6 +255,14 @@ func (s *GameService) CloseRound(room *models.Room) []*models.PhotoSubmission {
 	return room.RoundPhotos
 }
 
+// PointsForRank 第 rank 名（1 起算）的得獎分
+func PointsForRank(rank int) int {
+	if rank >= 1 && rank <= len(winPoints) {
+		return winPoints[rank-1]
+	}
+	return PointsLowerRanks
+}
+
 // ApplyWinners 套用房主的評選結果並計分
 func (s *GameService) ApplyWinners(room *models.Room, photoIDs []string) (models.RoundResult, []models.ScoreInfo, error) {
 	s.mu.Lock()
@@ -261,7 +271,7 @@ func (s *GameService) ApplyWinners(room *models.Room, photoIDs []string) (models
 	if room.Status != models.RoomStatusJudging {
 		return models.RoundResult{}, nil, ErrNotJudging
 	}
-	if len(photoIDs) == 0 || len(photoIDs) > MaxWinnersPerRound {
+	if len(photoIDs) == 0 || (room.MaxWinners > 0 && len(photoIDs) > room.MaxWinners) {
 		return models.RoundResult{}, nil, ErrInvalidWinners
 	}
 
@@ -289,7 +299,7 @@ func (s *GameService) ApplyWinners(room *models.Room, photoIDs []string) (models
 		seen[photoID] = true
 
 		rank := len(result.Winners) + 1
-		points := winPoints[rank-1]
+		points := PointsForRank(rank)
 
 		result.Winners = append(result.Winners, models.RoundWinner{
 			PhotoID:      sub.PhotoID,

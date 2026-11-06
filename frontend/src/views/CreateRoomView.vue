@@ -4,7 +4,9 @@ import { useRouter } from 'vue-router'
 import QuestionPicker from '@/components/QuestionPicker.vue'
 import { useSocketStore } from '@/stores/socket'
 import { useUIStore } from '@/stores/ui'
-import { CATEGORY_LABELS, SOLO_CATEGORIES, type RoomSetup } from '@/types'
+import MaxWinnersField from '@/components/MaxWinnersField.vue'
+import RandomSettings from '@/components/RandomSettings.vue'
+import type { RoomSetup } from '@/types'
 
 const router = useRouter()
 const socket = useSocketStore()
@@ -20,17 +22,13 @@ const setup = reactive<RoomSetup>({
   questionIds: [],
   customQuestions: [],
   categories: [],
+  maxWinners: 5,
   requireNickname: false,
   practiceRound: true,
 })
 
 const submitting = ref(false)
 
-const toggleCategory = (category: string) => {
-  const i = setup.categories.indexOf(category)
-  if (i >= 0) setup.categories.splice(i, 1)
-  else setup.categories.push(category)
-}
 
 const customCount = computed(() => setup.questionIds.length + setup.customQuestions.length)
 
@@ -125,65 +123,14 @@ const create = () => {
           </button>
         </div>
 
-        <div v-if="setup.questionMode === 'random'" class="mt-4 space-y-4">
-          <label class="block">
-            <span class="text-sm text-slate-300">題數：{{ setup.totalQuestions }} 題</span>
-            <input
-              v-model.number="setup.totalQuestions"
-              type="range"
-              min="1"
-              max="30"
-              class="mt-2 w-full accent-blush-500"
-            />
-          </label>
-
-          <div v-if="setup.mode === 'solo'">
-            <span class="text-sm text-slate-300">題目分類</span>
-            <span class="ml-2 text-xs text-slate-500">
-              {{ setup.categories.length ? '勾選的分類會平均出題' : '不勾就是全部分類一起抽' }}
-            </span>
-            <div class="mt-2 flex flex-wrap gap-2">
-              <button
-                v-for="category in SOLO_CATEGORIES"
-                :key="category"
-                class="rounded-full px-3 py-1.5 text-xs font-medium transition"
-                :class="
-                  setup.categories.includes(category)
-                    ? 'bg-blush-500 text-white'
-                    : 'bg-white/5 text-slate-400 hover:bg-white/10'
-                "
-                @click="toggleCategory(category)"
-              >
-                {{ CATEGORY_LABELS[category] }}
-              </button>
-            </div>
-          </div>
-
-          <div class="flex gap-2">
-            <button
-              class="flex-1 rounded-xl px-3 py-2 text-xs font-medium transition"
-              :class="
-                setup.difficulty === 'basic'
-                  ? 'bg-white/15 text-white'
-                  : 'bg-white/5 text-slate-400 hover:bg-white/10'
-              "
-              @click="setup.difficulty = 'basic'"
-            >
-              只出基礎題
-            </button>
-            <button
-              class="flex-1 rounded-xl px-3 py-2 text-xs font-medium transition"
-              :class="
-                setup.difficulty === 'mixed'
-                  ? 'bg-white/15 text-white'
-                  : 'bg-white/5 text-slate-400 hover:bg-white/10'
-              "
-              @click="setup.difficulty = 'mixed'"
-            >
-              基礎 + 進階混合
-            </button>
-          </div>
-        </div>
+        <RandomSettings
+          v-if="setup.questionMode === 'random'"
+          v-model:total="setup.totalQuestions"
+          v-model:categories="setup.categories"
+          v-model:difficulty="setup.difficulty"
+          :mode="setup.mode"
+          class="mt-4"
+        />
       </section>
 
       <!-- 自選題目 -->
@@ -211,6 +158,8 @@ const create = () => {
             class="mt-2 w-full accent-blush-500"
           />
         </label>
+
+        <MaxWinnersField v-model="setup.maxWinners" />
 
         <label class="block">
           <span class="text-sm text-slate-300">主持人名稱</span>

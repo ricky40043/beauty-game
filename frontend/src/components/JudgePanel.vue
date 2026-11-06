@@ -2,14 +2,19 @@
 import { computed, ref, watch } from 'vue'
 import type { PhotoSubmission } from '@/types'
 
-const props = defineProps<{ photos: PhotoSubmission[]; questionText: string }>()
+const props = defineProps<{
+  photos: PhotoSubmission[]
+  questionText: string
+  /** 0 = 不限，全部投稿都能排名 */
+  maxWinners: number
+}>()
 const emit = defineEmits<{
   (e: 'confirm', photoIds: string[]): void
   (e: 'skip'): void
   (e: 'preview', index: number): void
 }>()
 
-const MAX = 5
+const limit = computed(() => (props.maxWinners > 0 ? props.maxWinners : props.photos.length))
 
 const picked = ref<string[]>([])
 
@@ -30,12 +35,12 @@ const toggle = (photoId: string) => {
     picked.value.splice(index, 1)
     return
   }
-  if (picked.value.length >= MAX) return
+  if (picked.value.length >= limit.value) return
   picked.value.push(photoId)
 }
 
-const medal = (rank: number) => ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][rank - 1] ?? ''
-const points = (rank: number) => [100, 80, 60, 40, 20][rank - 1] ?? 0
+// 跟後端 services.PointsForRank 對齊：前 5 名照表，第 6 名起 10 分
+const points = (rank: number) => [100, 80, 60, 40, 20][rank - 1] ?? 10
 
 const canConfirm = computed(() => picked.value.length > 0)
 </script>
@@ -46,11 +51,11 @@ const canConfirm = computed(() => picked.value.length > 0)
       <div>
         <h2 class="text-2xl font-black">選出今日最美</h2>
         <p class="mt-1 text-sm text-slate-400">
-          點選照片決定名次（最多 5 張），點選的順序就是名次。
+          點選照片決定名次（{{ maxWinners > 0 ? `最多 ${maxWinners} 張` : '全部都可以排' }}），點選的順序就是名次。
         </p>
       </div>
       <p class="text-sm text-slate-400">
-        已選 <span class="font-bold text-blush-300">{{ picked.length }}</span> / {{ MAX }}
+        已選 <span class="font-bold text-blush-300">{{ picked.length }}</span> / {{ limit }}
       </p>
     </header>
 
@@ -78,11 +83,20 @@ const canConfirm = computed(() => picked.value.length > 0)
           </span>
         </button>
 
+        <!-- 名次要一眼看得出來：大數字為主，分數只是小字附註 -->
         <span
           v-if="rankOf(photo.photoId)"
-          class="pointer-events-none absolute left-2 top-2 rounded-xl bg-blush-500 px-2 py-1 text-sm font-bold shadow-lg"
+          class="pointer-events-none absolute left-2 top-2 flex items-center gap-1.5 rounded-2xl bg-blush-500 py-1 pl-1 pr-3 shadow-lg"
         >
-          {{ medal(rankOf(photo.photoId)) }} +{{ points(rankOf(photo.photoId)) }}
+          <span
+            class="grid h-11 min-w-[2.75rem] place-items-center rounded-xl bg-white px-1.5 text-3xl font-black tabular-nums text-blush-600"
+          >
+            {{ rankOf(photo.photoId) }}
+          </span>
+          <span class="text-left leading-tight">
+            <span class="block text-sm font-bold">第 {{ rankOf(photo.photoId) }} 名</span>
+            <span class="block text-[11px] opacity-80">+{{ points(rankOf(photo.photoId)) }} 分</span>
+          </span>
         </span>
 
         <button

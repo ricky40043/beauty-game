@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
+import MaxWinnersField from '@/components/MaxWinnersField.vue'
 import QRCodeDisplay from '@/components/QRCodeDisplay.vue'
 import QuestionPicker from '@/components/QuestionPicker.vue'
+import RandomSettings from '@/components/RandomSettings.vue'
 import { useGameStore } from '@/stores/game'
 import { useSocketStore } from '@/stores/socket'
 import { useUIStore } from '@/stores/ui'
@@ -23,12 +25,21 @@ const {
   questionTimeLimit,
   requireNickname,
   joinUrl,
+  maxWinners,
+  randomCategories,
 } = storeToRefs(game)
 
 const editingQuestions = ref(false)
 const draftQuestionIds = ref<number[]>([])
 const draftCustomQuestions = ref<string[]>([])
 const draftTimeLimit = ref(questionTimeLimit.value)
+const draftMaxWinners = ref(maxWinners.value)
+
+// 隨機出題設定：再來一局時可以重新調題數、分類、難度
+const editingRandom = ref(false)
+const draftTotal = ref(10)
+const draftCategories = ref<string[]>([])
+const draftDifficulty = ref<'basic' | 'mixed'>('mixed')
 
 const renaming = ref(false)
 const nameDraft = ref('')
@@ -48,6 +59,7 @@ const openEditor = () => {
   draftQuestionIds.value = game.questions.filter((q) => !q.isCustom).map((q) => q.id)
   draftCustomQuestions.value = game.questions.filter((q) => q.isCustom).map((q) => q.text)
   draftTimeLimit.value = questionTimeLimit.value
+  draftMaxWinners.value = maxWinners.value
   editingQuestions.value = true
 }
 
@@ -61,18 +73,32 @@ const saveQuestions = () => {
     questionIds: draftQuestionIds.value,
     customQuestions: draftCustomQuestions.value,
     questionTimeLimit: draftTimeLimit.value,
+    maxWinners: draftMaxWinners.value,
   })
   editingQuestions.value = false
 }
 
-const shuffleQuestions = () => {
+const openRandom = () => {
+  draftTotal.value = totalQuestions.value || 10
+  draftCategories.value = [...randomCategories.value]
+  draftTimeLimit.value = questionTimeLimit.value
+  draftMaxWinners.value = maxWinners.value
+  editingRandom.value = true
+}
+
+const saveRandom = () => {
   socket.updateSettings({
     questionMode: 'random',
-    totalQuestions: totalQuestions.value || 10,
-    difficulty: 'mixed',
-    questionTimeLimit: questionTimeLimit.value,
+    totalQuestions: draftTotal.value,
+    categories: mode.value === 'solo' ? draftCategories.value : [],
+    difficulty: draftDifficulty.value,
+    questionTimeLimit: draftTimeLimit.value,
+    maxWinners: draftMaxWinners.value,
   })
+  editingRandom.value = false
 }
+
+const winnersLabel = computed(() => (maxWinners.value > 0 ? `得獎前 ${maxWinners.value} 名` : '全部排名'))
 
 // 上一場結束後房間狀態是 finished，這時候送 START_GAME 會被後端擋下來，
 // 必須先重置回大廳，所以按鈕在這種情況下改成「開新的一局」。
@@ -184,9 +210,13 @@ const confirmRename = () => {
         <section
           class="flex flex-none flex-wrap items-center justify-center gap-2 text-sm text-slate-400 lg:justify-start"
         >
-          <span>共 {{ totalQuestions }} 題 · 每題 {{ questionTimeLimit }} 秒</span>
-          <button class="btn-ghost px-3 py-1.5 text-xs" @click="shuffleQuestions">重新隨機</button>
-          <button class="btn-ghost px-3 py-1.5 text-xs" @click="openEditor">編輯題目</button>
+          <span>共 {{ totalQuestions }} 題 · 每題 {{ questionTimeLimit }} 秒 · {{ winnersLabel }}</span>
+          <button class="btn-ghost px-3 py-1.5 text-xs" :disabled="gameInProgress" @click="openRandom">
+            隨機出題設定
+          </button>
+          <button class="btn-ghost px-3 py-1.5 text-xs" :disabled="gameInProgress" @click="openEditor">
+            編輯題目
+          </button>
         </section>
 
         <button
@@ -204,6 +234,45 @@ const confirmRename = () => {
         >
           {{ finishedLastGame ? '開新的一局' : '開始遊戲' }}
         </button>
+      </div>
+    </div>
+
+    <!-- 隨機出題設定 -->
+    <div
+      v-if="editingRandom"
+      class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/90 p-5 backdrop-blur"
+    >
+      <div class="mx-auto max-w-lg space-y-4 pb-8">
+        <header class="flex items-center justify-between">
+          <h2 class="text-xl font-bold">隨機出題設定</h2>
+          <button class="text-sm text-slate-400" @click="editingRandom = false">取消</button>
+        </header>
+
+        <section class="card">
+          <RandomSettings
+            v-model:total="draftTotal"
+            v-model:categories="draftCategories"
+            v-model:difficulty="draftDifficulty"
+            :mode="mode"
+          />
+        </section>
+
+        <section class="card space-y-4">
+          <label class="block">
+            <span class="text-sm text-slate-300">每題拍照時間：{{ draftTimeLimit }} 秒</span>
+            <input
+              v-model.number="draftTimeLimit"
+              type="range"
+              min="15"
+              max="180"
+              step="5"
+              class="mt-2 w-full accent-blush-500"
+            />
+          </label>
+          <MaxWinnersField v-model="draftMaxWinners" />
+        </section>
+
+        <button class="btn-primary w-full py-4" @click="saveRandom">重新抽題並儲存</button>
       </div>
     </div>
 
@@ -232,6 +301,10 @@ const confirmRename = () => {
             class="mt-2 w-full accent-blush-500"
           />
         </label>
+
+        <section class="card">
+          <MaxWinnersField v-model="draftMaxWinners" />
+        </section>
 
         <QuestionPicker
           :mode="mode"

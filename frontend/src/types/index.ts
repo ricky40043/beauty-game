@@ -107,6 +107,8 @@ export interface RoomSetup {
   customQuestions: string[]
   /** 隨機模式只從這些分類平均抽，空陣列代表全部 */
   categories: string[]
+  /** 每題得獎名額，0 = 全部投稿都能排名 */
+  maxWinners: number
   requireNickname: boolean
   practiceRound: boolean
 }

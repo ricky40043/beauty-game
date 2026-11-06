@@ -65,6 +65,9 @@ export const useSocketStore = defineStore('socket', () => {
       })
   }
 
+  /** joinRoom 改走接回流程時，接不回來要用的加入參數 */
+  let pendingJoin: { roomId: string; playerName: string } | null = null
+
   const openBlockingDialog = (title: string, message: string) => {
     if (blockingDialog.value) return
     shouldReconnect.value = false
@@ -307,8 +310,19 @@ export const useSocketStore = defineStore('socket', () => {
   const onRoomPage = () => /^\/(lobby|game|results)\//.test(router.currentRoute.value.path)
 
   function handleRoomStatus(data: Record<string, any>) {
+    const fallbackJoin = pendingJoin
+    pendingJoin = null
+
     const session = loadSession()
     if (!session) return
+
+    // 按「加入」時先試著接回舊身分；伺服器說這個人已經不在了，才真的以新玩家加入
+    if (fallbackJoin && (!data.exists || !data.playerExists)) {
+      clearSession()
+      game.reset()
+      send('JOIN_ROOM', fallbackJoin)
+      return
+    }
 
     if (!data.exists) {
       clearSession()
@@ -434,15 +448,29 @@ export const useSocketStore = defineStore('socket', () => {
       questionIds: setup.questionIds,
       customQuestions: setup.customQuestions,
       categories: setup.mode === 'solo' ? setup.categories : [],
+      maxWinners: setup.maxWinners,
       requireNickname: setup.requireNickname,
       practiceRound: setup.practiceRound,
     })
   }
 
+  /**
+   * 加入房間。這台裝置之前就在這間房（關掉瀏覽器後重掃 QR code 最常見）時，
+   * 不能清掉 session 重新加入 —— 那樣會變成另一個玩家、換一個名字、分數歸零。
+   * 先走跟斷線重連一樣的 CHECK_ROOM → REJOIN_ROOM，接不回來才真的 JOIN。
+   */
   const joinRoom = (roomId: string, playerName = '') => {
+    const id = roomId.toUpperCase()
+    const session = loadSession()
+    if (session && !session.isHost && session.roomId === id && session.playerId) {
+      pendingJoin = { roomId: id, playerName }
+      send('CHECK_ROOM', { roomId: id, playerId: session.playerId })
+      return
+    }
+
     clearSession()
     game.reset()
-    send('JOIN_ROOM', { roomId: roomId.toUpperCase(), playerName })
+    send('JOIN_ROOM', { roomId: id, playerName })
   }
 
   const rename = (name: string) => send('RENAME_PLAYER', { name })

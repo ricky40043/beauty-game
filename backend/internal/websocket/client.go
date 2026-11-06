@@ -236,6 +236,8 @@ func (c *Client) handleCreateRoom(data any) {
 		"totalQuestions":    len(room.Questions),
 		"questionTimeLimit": room.QuestionTimeLimit,
 		"questions":         room.Questions,
+		"randomCategories":  room.RandomCategories,
+		"maxWinners":        room.MaxWinners,
 		"joinUrl":           c.hub.BuildJoinURL(room.ID),
 	})
 }
@@ -424,6 +426,9 @@ func (c *Client) handleUpdateSettings(data any) {
 		Difficulty        string   `json:"difficulty"`
 		QuestionIDs       []int    `json:"questionIds"`
 		CustomQuestions   []string `json:"customQuestions"`
+		// 沒帶就沿用房間現有的分類；帶空陣列代表改回全部分類
+		Categories *[]string `json:"categories"`
+		MaxWinners *int      `json:"maxWinners"`
 	}
 	if err := decode(data, &req); err != nil {
 		c.sendError("BAD_PAYLOAD", "設定參數格式錯誤")
@@ -439,10 +444,14 @@ func (c *Client) handleUpdateSettings(data any) {
 			return
 		}
 	case "random":
-		questions = c.hub.questionService().BuildRandom(room.Mode, req.TotalQuestions, req.Difficulty, room.RandomCategories)
+		categories := room.RandomCategories
+		if req.Categories != nil {
+			categories = *req.Categories
+		}
+		questions = c.hub.questionService().BuildRandom(room.Mode, req.TotalQuestions, req.Difficulty, categories)
 	}
 
-	if err := c.hub.roomService.UpdateSettings(room.ID, req.QuestionTimeLimit, req.RequireNickname, questions); err != nil {
+	if err := c.hub.roomService.UpdateSettings(room.ID, req.QuestionTimeLimit, req.RequireNickname, req.MaxWinners, req.Categories, questions); err != nil {
 		c.sendError("UPDATE_FAILED", err.Error())
 		return
 	}
@@ -455,6 +464,8 @@ func (c *Client) handleUpdateSettings(data any) {
 		"inPractice":        room.InPractice,
 		"totalQuestions":    len(room.Questions),
 		"questions":         room.Questions,
+		"randomCategories":  room.RandomCategories,
+		"maxWinners":        room.MaxWinners,
 	})
 }
 

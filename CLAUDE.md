@@ -36,7 +36,7 @@ cd frontend && npm run type-check
 **服務層：**
 - `internal/services/game_service.go` — 回合狀態機與計分。**所有會改動 Room 的動作都必須經過這裡的 mutex**，Hub 與 Client 不直接改 Room 欄位
 - `internal/services/room_service.go` — 記憶體房間 CRUD、玩家進出、自動暱稱、房號產生（去掉 0/O/1/I）
-- `internal/services/question_service.go` / `question_bank.go` — 內建 106 題題庫（solo 81 / group 25）、隨機抽題（可勾分類，勾了就各分類平均輪流抽）、自選題序組題
+- `internal/services/question_service.go` / `question_bank.go` — 內建 105 題題庫（solo 80 / group 25）、隨機抽題（可勾分類，勾了就各分類平均輪流抽）、自選題序組題
 - `internal/services/question_store.go` — 後台自訂題目與停用清單，落地成 `{EXAMPLE_DIR}/questions.json`（先寫暫存檔再 rename）
 - `internal/storage/photo_store.go` — 記憶體照片庫，magic bytes 驗格式，per-room 張數與容量配額
 - `internal/examples/` — 題目示範圖。`figure.go` 是火柴人 SVG 產生器（肢體用 polyline 畫出關節，頭與臉最後畫才不會被手臂穿過），`scenes.go` 是 25 題團體題的站位設定，`store.go` 是房主自訂圖的磁碟覆寫層
@@ -61,9 +61,9 @@ cd frontend && npm run type-check
 - `CameraCapture.vue` — 主路徑 `getUserMedia` 全螢幕預覽 + 前後鏡頭切換；不可用時自動退回 `<input type="file" capture>`。拍完進預覽可重拍
 - `PhotoPopupLayer.vue` — 照片彈出停 **3 秒**淡出，隨機 **±30 度**傾斜疊成相片堆。傾斜角走 CSS 變數 `--tilt`，否則進場動畫的 `scale()` 會把旋轉整個覆蓋掉
 - `PhotoStrip.vue` — 主畫面常駐「最快前 5 張」縮圖，可點開燈箱
-- `JudgePanel.vue` — 房主評選，點選順序即名次
+- `JudgePanel.vue` — 房主評選，點選順序即名次，徽章以大數字顯示名次、分數小字附註
 - `QuestionPicker.vue` — 建房與大廳共用的題目選擇器（分類、搜尋、排序、自訂題）
-- `ChampionReveal.vue` — 結算時只在主畫面播的冠軍動畫：每題第一名照片快閃（越來越快）→ 停頓 → 冠軍登場。號角與掌聲由 `useCheer.ts` 用 Web Audio 合成，不打包音檔
+- `ChampionReveal.vue` — 結算時只在主畫面播的冠軍動畫：每題第一名照片快閃（越來越快）→ 停頓 → 冠軍登場，最後讓房主選「下載冠軍照片」或「取消」。號角與掌聲由 `useCheer.ts` 用 Web Audio 合成，不打包音檔
 
 ## 題庫來源
 
@@ -110,7 +110,8 @@ cd frontend && npm run type-check
 - 每人每題只有一張投稿，再傳就是覆蓋（沿用抵達順序、不重複給分）
 - 完成上傳 +10
 - 抵達順序前三 +15 / +10 / +5
-- 得獎依房主點選順序 100 / 80 / 60 / 40 / 20
+- 得獎依房主點選順序 100 / 80 / 60 / 40 / 20，第 6 名起 10 分（`PointsForRank`）
+- 每題得獎名額 `Room.MaxWinners` 建房與大廳都可設，預設 5，0 = 全部投稿都能排名
 - 排行榜同分同名次（1、1、3），同分第一名全部算冠軍
 - 團體模式該回合有得獎時，全場每人再 +50 合作分
 
@@ -149,6 +150,9 @@ cd frontend && npm run type-check
 - **`getUserMedia` 需要 HTTPS 或 localhost。** 手機用區網 IP 走 http 連 dev server 時網頁相機會被擋，`CameraCapture` 會自動退回系統相機，功能不受影響
 - 房主不是玩家：房主只負責主畫面與評選，不參與拍照與計分
 - 房主身分靠 `hostToken`（localStorage）驗證，換連線重連後仍是房主
+- 玩家身分靠 localStorage 的 `playerId`：斷線、重新整理、關分頁重掃 QR 都會接回同一人（名字、分數、本題投稿都在）。
+  `joinRoom()` 發現手上已有同一間房的 session 時會先走 `CHECK_ROOM → REJOIN_ROOM`，伺服器說人不在了才真的 `JOIN_ROOM` ——
+  否則玩家按上一頁回加入頁再按「加入」會變成新玩家、留下幽靈。換瀏覽器（例如 LINE 內建瀏覽器 vs Safari）storage 不共用，會是新玩家
 
 ## Coding Conventions
 

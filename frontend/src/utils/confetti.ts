@@ -28,3 +28,8 @@ export function celebrateFinale() {
 
   frame()
 }
+
+/** 清掉還在飄的彩帶，冠軍動畫開場前用，不然上一題的彩帶會蓋在開場畫面上 */
+export function clearConfetti() {
+  confetti.reset()
+}

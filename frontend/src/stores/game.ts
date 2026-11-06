@@ -42,6 +42,10 @@ export const useGameStore = defineStore('game', () => {
 
   // ── 結果 ────────────────────────────────────────────────
   const scores = ref<ScoreInfo[]>([])
+  /** 每題得獎名額，0 = 不限 */
+  const maxWinners = ref(5)
+  /** 隨機抽題勾的分類，大廳重新抽題時帶入 */
+  const randomCategories = ref<string[]>([])
   const roundResult = ref<RoundResult | null>(null)
   const history = ref<RoundResult[]>([])
 
@@ -74,6 +78,8 @@ export const useGameStore = defineStore('game', () => {
     if (payload.questionTimeLimit !== undefined) questionTimeLimit.value = payload.questionTimeLimit
     if (payload.joinUrl) joinUrl.value = payload.joinUrl
     if (Array.isArray(payload.questions)) questions.value = payload.questions
+    if (typeof payload.maxWinners === 'number') maxWinners.value = payload.maxWinners
+    if (payload.randomCategories !== undefined) randomCategories.value = payload.randomCategories ?? []
     if (Array.isArray(payload.players)) players.value = payload.players
   }
 
@@ -197,6 +203,8 @@ export const useGameStore = defineStore('game', () => {
     myPhotoUrl,
     uploading,
     scores,
+    maxWinners,
+    randomCategories,
     roundResult,
     history,
     stripLimit,

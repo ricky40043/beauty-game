@@ -119,6 +119,9 @@ type Room struct {
 	Players   map[string]*Player `json:"players"`
 	Questions []Question         `json:"questions"`
 
+	// MaxWinners 每題最多可以選幾張得獎，0 代表不限（投稿幾張就能排幾名）
+	MaxWinners int `json:"maxWinners"`
+
 	// RandomCategories 建房時勾的抽題分類，大廳「重新隨機」要沿用，不然會洗回全部分類
 	RandomCategories []string `json:"randomCategories"`
 
@@ -161,6 +164,7 @@ type CreateRoomRequest struct {
 	QuestionIDs       []int    `json:"questionIds"`     // 自選模式：題庫題目，順序即遊玩順序
 	CustomQuestions   []string `json:"customQuestions"` // 自選模式：房主自己打的題目，接在後面
 	Categories        []string `json:"categories"`      // 隨機模式：只從這些分類平均抽；空的代表全部
+	MaxWinners        *int     `json:"maxWinners"`      // 每題得獎名額，0 = 不限；沒帶就用預設 5
 	RequireNickname   bool     `json:"requireNickname"`
 	PracticeRound     bool     `json:"practiceRound"`
 }

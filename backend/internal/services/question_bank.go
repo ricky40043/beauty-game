@@ -2,7 +2,7 @@ package services
 
 import "beauty-game/internal/models"
 
-// soloQuestions 單人題庫（81 題）。ID 1000 起算。
+// soloQuestions 單人題庫（80 題）。ID 1000 起算。
 // Difficulty：1 = 基礎（拍了就有）、2 = 進階（要找東西、要構圖）
 var soloQuestions = []models.Question{
 	// ── 表情 expression（10）────────────────────────────────
@@ -92,9 +92,8 @@ var soloQuestions = []models.Question{
 	{ID: 1709, Text: "同事說「幫我一下，只要五分鐘」的表情", Category: models.CategoryWork, Difficulty: 1},
 	{ID: 1710, Text: "收到「明天放颱風假」通知的表情", Category: models.CategoryWork, Difficulty: 1},
 
-	// ── 教會／聖誕篇 church（10）────────────────────────
+	// ── 教會／聖誕篇 church（9）────────────────────────
 	{ID: 1801, Text: "打開手機訊息，發現新朋友放你鳥的表情", Category: models.CategoryChurch, Difficulty: 1},
-	{ID: 1802, Text: "站在門口接待，笑到臉都僵掉的招牌笑容", Category: models.CategoryChurch, Difficulty: 1},
 	{ID: 1803, Text: "聚會遲到推門進來，全場回頭看你的表情", Category: models.CategoryChurch, Difficulty: 1},
 	{ID: 1804, Text: "想吃最後一塊炸雞，卻看到新朋友也想吃時的反應", Category: models.CategoryChurch, Difficulty: 1},
 	{ID: 1805, Text: "交換禮物拆到很雷的東西，還要假裝很喜歡", Category: models.CategoryChurch, Difficulty: 1},
