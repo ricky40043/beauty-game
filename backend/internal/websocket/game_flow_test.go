@@ -1,8 +1,10 @@
 package websocket_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -64,6 +66,7 @@ func newTestServer(t *testing.T) *testServer {
 	router.GET("/ws", api.ServeWS)
 	router.POST("/api/rooms/:roomId/photos", photo.Upload)
 	router.GET("/api/photos/:photoId", photo.Get)
+	router.GET("/api/rooms/:roomId/winners.zip", photo.WinnersZip)
 
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)
@@ -483,8 +486,10 @@ func TestCustomQuestionOrder(t *testing.T) {
 
 		host.send("END_SHOOTING", map[string]any{})
 		host.await("ROUND_CLOSED")
-		host.await("ROUND_RESULT") // 沒人投稿，自動空結果
-		host.send("NEXT_QUESTION", map[string]any{})
+		// 沒人投稿：自動送空結果並直接進下一題，不用房主再按「下一題」
+		if result := host.await("ROUND_RESULT"); result["empty"] != true {
+			t.Fatalf("第 %d 題沒人投稿，應該是空結果", i+1)
+		}
 	}
 
 	host.await("GAME_FINISHED")
@@ -905,5 +910,130 @@ func TestPhotosFreedBetweenRounds(t *testing.T) {
 	// 總共上傳 9 張，只有 3 張得獎，其餘 6 張應該都釋放掉了
 	if got, _, _ := srv.photos.Stats(); got != 3 {
 		t.Fatalf("整場結束後應只剩 3 張得獎照片，實際 %d 張", got)
+	}
+}
+
+// TestResultAutoAdvance 公布得獎後停 resultSeconds 秒自動進下一題；
+// 房主在倒數中按「下一題」也只會前進一題，不會跟計時器各跳一次
+func TestResultAutoAdvance(t *testing.T) {
+	srv := newTestServer(t)
+
+	host := srv.dial(t)
+	host.send("CREATE_ROOM", map[string]any{
+		"hostName": "主持人", "mode": "solo",
+		"totalQuestions": 3, "questionTimeLimit": 60, "questionMode": "random",
+		"resultSeconds": 1,
+	})
+	roomID, _ := host.await("ROOM_CREATED")["roomId"].(string)
+
+	player := srv.dial(t)
+	player.send("JOIN_ROOM", map[string]any{"roomId": roomID})
+	player.await("JOIN_SUCCESS")
+
+	host.send("START_GAME", map[string]any{})
+	host.await("NEW_QUESTION")
+
+	pickOnly := func() {
+		photoID := srv.uploadPhoto(t, roomID)
+		player.send("SUBMIT_PHOTO", map[string]any{"photoId": photoID})
+		host.await("ROUND_CLOSED")
+		host.send("PICK_WINNERS", map[string]any{"photoIds": []string{photoID}})
+		if sec, _ := host.await("ROUND_RESULT")["autoNextSec"].(float64); sec != 1 {
+			t.Fatalf("ROUND_RESULT 應該帶 autoNextSec=1，實際 %v", sec)
+		}
+	}
+
+	// 第 1 題：不按任何鈕，1 秒後應該自己進第 2 題
+	pickOnly()
+	if num, _ := host.await("NEW_QUESTION")["questionNum"].(float64); num != 2 {
+		t.Fatalf("自動換題應該進第 2 題，實際 %v", num)
+	}
+
+	// 第 2 題：公布後馬上按「下一題」，計時器到點時不能再多跳一題
+	pickOnly()
+	host.send("NEXT_QUESTION", map[string]any{})
+	if num, _ := host.await("NEW_QUESTION")["questionNum"].(float64); num != 3 {
+		t.Fatalf("按下一題應該進第 3 題，實際 %v", num)
+	}
+
+	deadline := time.After(1600 * time.Millisecond)
+	for {
+		select {
+		case msg := <-host.msgs:
+			if msg.Type == "NEW_QUESTION" || msg.Type == "GAME_FINISHED" {
+				t.Fatalf("計時器在房主已換題後又換了一次：收到 %s", msg.Type)
+			}
+		case <-deadline:
+			return
+		}
+	}
+}
+
+// TestWinnersZip 結算後可以把每題第 1 名的照片打包下載；沒選得獎的題目不會出現在 zip 裡
+func TestWinnersZip(t *testing.T) {
+	srv := newTestServer(t)
+
+	host := srv.dial(t)
+	host.send("CREATE_ROOM", map[string]any{
+		"hostName": "主持人", "mode": "solo",
+		"totalQuestions": 3, "questionTimeLimit": 60, "questionMode": "random",
+		"resultSeconds": 0,
+	})
+	roomID, _ := host.await("ROOM_CREATED")["roomId"].(string)
+
+	alice := srv.dial(t)
+	alice.send("JOIN_ROOM", map[string]any{"roomId": roomID, "playerName": "阿明"})
+	alice.await("JOIN_SUCCESS")
+
+	host.send("START_GAME", map[string]any{})
+	host.await("NEW_QUESTION")
+
+	for round := 1; round <= 3; round++ {
+		photoID := srv.uploadPhoto(t, roomID)
+		alice.send("SUBMIT_PHOTO", map[string]any{"photoId": photoID})
+		host.await("ROUND_CLOSED")
+
+		if round == 2 {
+			// 第 2 題不選，伺服器會直接進下一題
+			host.send("SKIP_ROUND", map[string]any{})
+			host.await("NEW_QUESTION")
+			continue
+		}
+		host.send("PICK_WINNERS", map[string]any{"photoIds": []string{photoID}})
+		host.await("ROUND_RESULT")
+		host.send("NEXT_QUESTION", map[string]any{})
+		if round < 3 {
+			host.await("NEW_QUESTION")
+		}
+	}
+	host.await("GAME_FINISHED")
+
+	resp, err := srv.http.Client().Get(srv.http.URL + "/api/rooms/" + roomID + "/winners.zip")
+	if err != nil {
+		t.Fatalf("下載 zip 失敗: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Type") != "application/zip" {
+		t.Fatalf("zip 回應不對：%d %s", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	raw, _ := io.ReadAll(resp.Body)
+	zr, err := zip.NewReader(bytes.NewReader(raw), int64(len(raw)))
+	if err != nil {
+		t.Fatalf("不是合法的 zip: %v", err)
+	}
+	if len(zr.File) != 2 {
+		t.Fatalf("3 題裡有 2 題有得獎，zip 應該有 2 張，實際 %d", len(zr.File))
+	}
+	for i, prefix := range []string{"第01題-", "第03題-"} {
+		name := zr.File[i].Name
+		if !strings.HasPrefix(name, prefix) || !strings.HasSuffix(name, "-阿明.jpg") {
+			t.Fatalf("第 %d 個檔名不對：%s", i+1, name)
+		}
+		f, _ := zr.File[i].Open()
+		data, _ := io.ReadAll(f)
+		f.Close()
+		if !bytes.Equal(data, fakeJPEG(2048)) {
+			t.Fatalf("%s 的內容跟上傳的照片不同", name)
+		}
 	}
 }

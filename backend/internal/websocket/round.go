@@ -92,19 +92,41 @@ func (h *Hub) closeRound(room *models.Room, reason string) {
 		"totalPhotos":   len(photos),
 	})
 
-	// 一張都沒有就沒得選，直接讓房主按下一題
+	// 一張都沒有就沒得選，直接進下一題
 	if len(photos) == 0 {
-		result := h.gameService.SkipRound(room)
-		h.BroadcastToRoom(room.ID, "ROUND_RESULT", map[string]any{
-			"roomId":        room.ID,
-			"questionIndex": result.QuestionIndex,
-			"questionText":  result.QuestionText,
-			"winners":       result.Winners,
-			"groupBonus":    0,
-			"scores":        h.gameService.Leaderboard(room),
-			"empty":         true,
-		})
+		h.skipAndAdvance(room)
 	}
+}
+
+// skipAndAdvance 本題沒有得獎者（沒人投稿，或房主選「這題都不選」）：
+// 記一筆空的結果後直接進下一題，不停在「這題沒有選出得獎者」的畫面等房主再按一次。
+// 仍然先送 empty 的 ROUND_RESULT，讓前端同步分數與歷史。
+func (h *Hub) skipAndAdvance(room *models.Room) {
+	result := h.gameService.SkipRound(room)
+	h.BroadcastToRoom(room.ID, "ROUND_RESULT", map[string]any{
+		"roomId":        room.ID,
+		"questionIndex": result.QuestionIndex,
+		"questionText":  result.QuestionText,
+		"winners":       result.Winners,
+		"groupBonus":    0,
+		"scores":        h.gameService.Leaderboard(room),
+		"empty":         true,
+	})
+
+	h.advance(room)
+}
+
+// advance 釋放本題照片後換下一題，沒有下一題就結算
+func (h *Hub) advance(room *models.Room) {
+	// 一定要在 NextRound 之前做：它會把 RoundPhotos 清空，之後就找不到要刪哪些了
+	h.releaseRoundPhotos(room)
+
+	if !h.gameService.NextRound(room) {
+		h.finishGame(room)
+		return
+	}
+
+	h.startRound(room)
 }
 
 // releaseRoundPhotos 釋放上一題的非得獎照片。
@@ -238,6 +260,23 @@ func (c *Client) handlePickWinners(data any) {
 		"groupBonus":    result.GroupBonus,
 		"scores":        scores,
 		"empty":         false,
+		"autoNextSec":   room.ResultSeconds,
+	})
+
+	c.hub.scheduleAutoAdvance(room)
+}
+
+// scheduleAutoAdvance 公布得獎後停 ResultSeconds 秒自動進下一題。
+// 房主在這之前先按了「下一題」的話，ClaimAdvance 會讓這個計時器什麼都不做。
+func (h *Hub) scheduleAutoAdvance(room *models.Room) {
+	if room.ResultSeconds <= 0 {
+		return
+	}
+	seq := h.gameService.Seq(room)
+	time.AfterFunc(time.Duration(room.ResultSeconds)*time.Second, func() {
+		if h.gameService.ClaimAdvance(room, seq) {
+			h.advance(room)
+		}
 	})
 }
 
@@ -252,16 +291,7 @@ func (c *Client) handleSkipRound() {
 		return
 	}
 
-	result := c.hub.gameService.SkipRound(room)
-	c.hub.BroadcastToRoom(room.ID, "ROUND_RESULT", map[string]any{
-		"roomId":        room.ID,
-		"questionIndex": result.QuestionIndex,
-		"questionText":  result.QuestionText,
-		"winners":       result.Winners,
-		"groupBonus":    0,
-		"scores":        c.hub.gameService.Leaderboard(room),
-		"empty":         true,
-	})
+	c.hub.skipAndAdvance(room)
 }
 
 func (c *Client) handleNextQuestion() {
@@ -274,16 +304,12 @@ func (c *Client) handleNextQuestion() {
 		c.sendError("STILL_SHOOTING", "這題還在拍照中")
 		return
 	}
-
-	// 一定要在 NextRound 之前做：它會把 RoundPhotos 清空，之後就找不到要刪哪些了
-	c.hub.releaseRoundPhotos(room)
-
-	if !c.hub.gameService.NextRound(room) {
-		c.hub.finishGame(room)
+	// 結果畫面上自動計時可能剛好搶先換題了，這時房主這一按就不該再跳一題
+	if room.Status == models.RoomStatusRoundResult && !c.hub.gameService.ClaimAdvance(room, -1) {
 		return
 	}
 
-	c.hub.startRound(room)
+	c.hub.advance(room)
 }
 
 func (c *Client) handleResetToLobby() {

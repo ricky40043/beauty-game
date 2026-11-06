@@ -131,6 +131,7 @@ func setupRoutes(
 		group.GET("/rooms/:roomId", api.GetRoom)
 		group.POST("/rooms/:roomId/photos", photo.Upload)
 		group.GET("/photos/:photoId", photo.Get)
+		group.GET("/rooms/:roomId/winners.zip", photo.WinnersZip)
 
 		// 題目示範圖：讀取公開，後台寫入需要 ADMIN_TOKEN（沒設就不驗）
 		group.GET("/questions/:questionId/example", example.Get)

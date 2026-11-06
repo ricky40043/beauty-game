@@ -270,6 +270,7 @@ func (h *Hub) roomSnapshot(room *models.Room) map[string]any {
 		"totalQuestions":    len(room.Questions),
 		"randomCategories":  room.RandomCategories,
 		"maxWinners":        room.MaxWinners,
+		"resultSeconds":     room.ResultSeconds,
 		"currentQuestion":   room.CurrentQuestion,
 		"questionTimeLimit": room.QuestionTimeLimit,
 		"timeLeft":          room.TimeLeft,

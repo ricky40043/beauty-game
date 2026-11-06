@@ -34,6 +34,7 @@ const {
   scores,
   isPractice,
   maxWinners,
+  resultSeconds,
 } = storeToRefs(game)
 
 const lightboxIndex = ref(-1)
@@ -264,7 +265,7 @@ const isLastQuestion = computed(
           />
           <figcaption class="bg-white px-3 py-2 text-center text-slate-900">
             <p class="text-2xl">
-              {{ ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][winner.rank - 1] }}
+              {{ ['🥇', '🥈', '🥉'][winner.rank - 1] ?? `第 ${winner.rank} 名` }}
             </p>
             <p class="truncate font-bold">{{ winner.playerAvatar }} {{ winner.playerName }}</p>
             <p class="text-sm font-semibold text-blush-600">+{{ winner.points }} 分</p>
@@ -294,6 +295,18 @@ const isLastQuestion = computed(
         <button class="btn-primary shrink-0 px-8 py-4 text-lg" @click="socket.nextQuestion()">
           {{ isLastQuestion ? '看最終結果 →' : '下一題 →' }}
         </button>
+      </div>
+
+      <!-- 自動下一題的倒數條：伺服器到點就換題，這條只是讓全場看得到還剩多久 -->
+      <div
+        v-if="resultSeconds > 0 && roundResult"
+        :key="roundResult.questionIndex"
+        class="fixed inset-x-0 bottom-0 z-40 h-2 bg-white/10"
+      >
+        <div
+          class="auto-next-bar h-full bg-gradient-to-r from-blush-500 to-amber-300"
+          :style="{ animationDuration: `${resultSeconds}s` }"
+        />
       </div>
     </section>
 
@@ -355,3 +368,15 @@ const isLastQuestion = computed(
     />
   </main>
 </template>
+
+<style scoped>
+.auto-next-bar {
+  width: 0;
+  animation: auto-next linear forwards;
+}
+@keyframes auto-next {
+  to {
+    width: 100%;
+  }
+}
+</style>

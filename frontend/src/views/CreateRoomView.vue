@@ -6,6 +6,7 @@ import { useSocketStore } from '@/stores/socket'
 import { useUIStore } from '@/stores/ui'
 import MaxWinnersField from '@/components/MaxWinnersField.vue'
 import RandomSettings from '@/components/RandomSettings.vue'
+import ResultSecondsField from '@/components/ResultSecondsField.vue'
 import type { RoomSetup } from '@/types'
 
 const router = useRouter()
@@ -23,6 +24,7 @@ const setup = reactive<RoomSetup>({
   customQuestions: [],
   categories: [],
   maxWinners: 5,
+  resultSeconds: 2,
   requireNickname: false,
   practiceRound: true,
 })
@@ -160,6 +162,8 @@ const create = () => {
         </label>
 
         <MaxWinnersField v-model="setup.maxWinners" />
+
+        <ResultSecondsField v-model="setup.resultSeconds" />
 
         <label class="block">
           <span class="text-sm text-slate-300">主持人名稱</span>

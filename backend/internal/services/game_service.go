@@ -16,6 +16,8 @@ const (
 	PointsGroupBonus = 50
 	// DefaultMaxWinners 建房沒指定時，每題最多可以選幾張得獎
 	DefaultMaxWinners = 5
+	// DefaultResultSeconds 公布得獎畫面預設停留秒數，時間到自動下一題
+	DefaultResultSeconds = 2
 	// PointsLowerRanks 第 6 名以後的得獎分：名額開到全部時，被點到的人還是要比沒被點到的多一點
 	PointsLowerRanks = 10
 )
@@ -115,9 +117,34 @@ func (s *GameService) beginRoundLocked(room *models.Room) {
 	room.RoundPhotos = make([]*models.PhotoSubmission, 0, 8)
 	room.RoundStartAt = time.Now()
 	room.RoundSeq++
+	room.Advancing = false
 	room.TimeLeft = room.QuestionTimeLimit
 	room.Status = models.RoomStatusShooting
 	room.LastActivity = time.Now()
+}
+
+// ClaimAdvance 從「公布得獎」畫面換題前先搶這一題的換題權。
+// 自動計時與房主按「下一題」可能同時發生，只有先搶到的那一方會真的換題，
+// 否則會連跳兩題。seq 傳 -1 代表不比對回合（房主手動）。
+func (s *GameService) ClaimAdvance(room *models.Room, seq int) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if room.Status != models.RoomStatusRoundResult || room.Advancing {
+		return false
+	}
+	if seq >= 0 && room.RoundSeq != seq {
+		return false
+	}
+	room.Advancing = true
+	return true
+}
+
+// Seq 目前的回合序號，給延遲動作比對「是不是還在同一題」
+func (s *GameService) Seq(room *models.Room) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return room.RoundSeq
 }
 
 // NextRound 進入下一題。回傳 false 表示題目已經出完。
@@ -383,6 +410,7 @@ func (s *GameService) ResetToLobby(room *models.Room) {
 	defer s.mu.Unlock()
 
 	room.Status = models.RoomStatusWaiting
+	room.Advancing = false
 	room.CurrentQuestion = -1
 	room.InPractice = false
 	room.RoundPhotos = nil

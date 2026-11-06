@@ -79,6 +79,10 @@ func (s *RoomService) CreateRoom(req models.CreateRoomRequest) (*models.Room, er
 	if req.MaxWinners != nil {
 		maxWinners = clampMaxWinners(*req.MaxWinners)
 	}
+	resultSeconds := DefaultResultSeconds
+	if req.ResultSeconds != nil {
+		resultSeconds = clampResultSeconds(*req.ResultSeconds)
+	}
 
 	hostName := names.Sanitize(req.HostName)
 	if hostName == "" {
@@ -99,6 +103,7 @@ func (s *RoomService) CreateRoom(req models.CreateRoomRequest) (*models.Room, er
 		Questions:         questions,
 		RandomCategories:  req.Categories,
 		MaxWinners:        maxWinners,
+		ResultSeconds:     resultSeconds,
 		CurrentQuestion:   -1,
 		QuestionTimeLimit: timeLimit,
 		History:           make([]models.RoundResult, 0),
@@ -270,7 +275,7 @@ func (s *RoomService) Touch(roomID string) {
 }
 
 // UpdateSettings 大廳調整設定（題數 / 秒數 / 取名開關 / 重新編排題目）
-func (s *RoomService) UpdateSettings(roomID string, timeLimit int, requireNickname *bool, maxWinners *int, categories *[]string, questions []models.Question) error {
+func (s *RoomService) UpdateSettings(roomID string, patch SettingsPatch, questions []models.Question) error {
 	room, err := s.GetRoom(roomID)
 	if err != nil {
 		return err
@@ -285,17 +290,20 @@ func (s *RoomService) UpdateSettings(roomID string, timeLimit int, requireNickna
 		return errors.New("遊戲進行中無法修改設定")
 	}
 
-	if timeLimit >= 15 && timeLimit <= 300 {
-		room.QuestionTimeLimit = timeLimit
+	if patch.TimeLimit >= 15 && patch.TimeLimit <= 300 {
+		room.QuestionTimeLimit = patch.TimeLimit
 	}
-	if requireNickname != nil {
-		room.RequireNickname = *requireNickname
+	if patch.RequireNickname != nil {
+		room.RequireNickname = *patch.RequireNickname
 	}
-	if maxWinners != nil {
-		room.MaxWinners = clampMaxWinners(*maxWinners)
+	if patch.MaxWinners != nil {
+		room.MaxWinners = clampMaxWinners(*patch.MaxWinners)
 	}
-	if categories != nil {
-		room.RandomCategories = *categories
+	if patch.ResultSeconds != nil {
+		room.ResultSeconds = clampResultSeconds(*patch.ResultSeconds)
+	}
+	if patch.Categories != nil {
+		room.RandomCategories = *patch.Categories
 	}
 	if len(questions) > 0 {
 		room.Questions = questions
@@ -303,6 +311,26 @@ func (s *RoomService) UpdateSettings(roomID string, timeLimit int, requireNickna
 
 	room.LastActivity = time.Now()
 	return nil
+}
+
+// SettingsPatch 大廳改設定的內容；指標欄位為 nil 代表這次沒改
+type SettingsPatch struct {
+	TimeLimit       int
+	RequireNickname *bool
+	MaxWinners      *int
+	ResultSeconds   *int
+	Categories      *[]string
+}
+
+// clampResultSeconds 0 代表手動；其餘夾在 1~30 秒
+func clampResultSeconds(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	if n > 30 {
+		return 30
+	}
+	return n
 }
 
 // clampMaxWinners 0 代表不限；其餘夾在 1~50，超過一間房實際會有的人數也沒意義

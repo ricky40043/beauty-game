@@ -5,6 +5,7 @@ import MaxWinnersField from '@/components/MaxWinnersField.vue'
 import QRCodeDisplay from '@/components/QRCodeDisplay.vue'
 import QuestionPicker from '@/components/QuestionPicker.vue'
 import RandomSettings from '@/components/RandomSettings.vue'
+import ResultSecondsField from '@/components/ResultSecondsField.vue'
 import { useGameStore } from '@/stores/game'
 import { useSocketStore } from '@/stores/socket'
 import { useUIStore } from '@/stores/ui'
@@ -26,6 +27,7 @@ const {
   requireNickname,
   joinUrl,
   maxWinners,
+  resultSeconds,
   randomCategories,
 } = storeToRefs(game)
 
@@ -34,6 +36,7 @@ const draftQuestionIds = ref<number[]>([])
 const draftCustomQuestions = ref<string[]>([])
 const draftTimeLimit = ref(questionTimeLimit.value)
 const draftMaxWinners = ref(maxWinners.value)
+const draftResultSeconds = ref(resultSeconds.value)
 
 // 隨機出題設定：再來一局時可以重新調題數、分類、難度
 const editingRandom = ref(false)
@@ -60,6 +63,7 @@ const openEditor = () => {
   draftCustomQuestions.value = game.questions.filter((q) => q.isCustom).map((q) => q.text)
   draftTimeLimit.value = questionTimeLimit.value
   draftMaxWinners.value = maxWinners.value
+  draftResultSeconds.value = resultSeconds.value
   editingQuestions.value = true
 }
 
@@ -74,6 +78,7 @@ const saveQuestions = () => {
     customQuestions: draftCustomQuestions.value,
     questionTimeLimit: draftTimeLimit.value,
     maxWinners: draftMaxWinners.value,
+    resultSeconds: draftResultSeconds.value,
   })
   editingQuestions.value = false
 }
@@ -83,6 +88,7 @@ const openRandom = () => {
   draftCategories.value = [...randomCategories.value]
   draftTimeLimit.value = questionTimeLimit.value
   draftMaxWinners.value = maxWinners.value
+  draftResultSeconds.value = resultSeconds.value
   editingRandom.value = true
 }
 
@@ -94,6 +100,7 @@ const saveRandom = () => {
     difficulty: draftDifficulty.value,
     questionTimeLimit: draftTimeLimit.value,
     maxWinners: draftMaxWinners.value,
+    resultSeconds: draftResultSeconds.value,
   })
   editingRandom.value = false
 }
@@ -270,6 +277,7 @@ const confirmRename = () => {
             />
           </label>
           <MaxWinnersField v-model="draftMaxWinners" />
+          <ResultSecondsField v-model="draftResultSeconds" />
         </section>
 
         <button class="btn-primary w-full py-4" @click="saveRandom">重新抽題並儲存</button>
@@ -304,6 +312,7 @@ const confirmRename = () => {
 
         <section class="card">
           <MaxWinnersField v-model="draftMaxWinners" />
+          <ResultSecondsField v-model="draftResultSeconds" />
         </section>
 
         <QuestionPicker

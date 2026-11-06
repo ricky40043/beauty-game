@@ -73,6 +73,7 @@ const submit = async (blob: Blob) => {
     socket.submitPhoto(photoId)
   } catch (error) {
     uploading.value = false
+    camera.value?.markUploadFailed()
     ui.showError(error instanceof Error ? error.message : '上傳失敗')
   }
 }

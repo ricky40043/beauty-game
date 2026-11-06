@@ -19,6 +19,8 @@ const hint = ref('')
 
 const previewUrl = ref('')
 const captured = ref<Blob | null>(null)
+/** 上一次上傳失敗，要讓使用者能直接再傳同一張 */
+const uploadFailed = ref(false)
 
 let stream: MediaStream | null = null
 
@@ -87,6 +89,8 @@ const setPreview = (blob: Blob, url: string) => {
   previewUrl.value = url
   stage.value = 'preview'
   stopStream()
+  // 拍完就直接上傳，不再多一步「上傳這張」：派對現場大家只想快點交卷
+  submit()
 }
 
 const retake = async () => {
@@ -98,7 +102,14 @@ const retake = async () => {
 }
 
 const submit = () => {
-  if (captured.value) emit('submit', captured.value)
+  if (!captured.value) return
+  uploadFailed.value = false
+  emit('submit', captured.value)
+}
+
+/** 父元件上傳失敗時呼叫，讓預覽區出現「再傳一次」 */
+const markUploadFailed = () => {
+  uploadFailed.value = true
 }
 
 onMounted(startCamera)
@@ -116,7 +127,7 @@ const resetForNewQuestion = () => {
   if (stage.value === 'preview') retake()
 }
 
-defineExpose({ retake, resetForNewQuestion })
+defineExpose({ retake, resetForNewQuestion, markUploadFailed })
 </script>
 
 <template>
@@ -172,10 +183,18 @@ defineExpose({ retake, resetForNewQuestion })
     <!-- 操作區 -->
     <div class="mt-4 shrink-0">
       <div v-if="stage === 'preview'" class="flex gap-3">
-        <button class="btn-ghost flex-1 py-4" :disabled="busy" @click="retake">重拍</button>
-        <button class="btn-primary flex-[2] py-4 text-lg" :disabled="busy || disabled" @click="submit">
-          {{ busy ? '上傳中…' : '上傳這張' }}
-        </button>
+        <button v-if="busy" class="btn-primary flex-1 py-4 text-lg" disabled>上傳中…</button>
+        <template v-else>
+          <button class="btn-ghost flex-1 py-4" @click="retake">重拍</button>
+          <button
+            v-if="uploadFailed"
+            class="btn-primary flex-[2] py-4 text-lg"
+            :disabled="disabled"
+            @click="submit"
+          >
+            再傳一次
+          </button>
+        </template>
       </div>
 
       <div v-else-if="stage === 'live'" class="flex justify-center">

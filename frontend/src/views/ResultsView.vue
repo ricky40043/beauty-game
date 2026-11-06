@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import ChampionReveal, { type Champion, type Highlight } from '@/components/ChampionReveal.vue'
 import PhotoLightbox from '@/components/PhotoLightbox.vue'
+import WinnersDownload from '@/components/WinnersDownload.vue'
 import { useGameStore } from '@/stores/game'
 import { useSocketStore } from '@/stores/socket'
 import { celebrateFinale } from '@/utils/confetti'
@@ -56,7 +57,15 @@ const highlights = computed<Highlight[]>(() =>
   history.value.flatMap((round) => {
     const top = [...round.winners].sort((a, b) => a.rank - b.rank)[0]
     return top
-      ? [{ url: top.url, playerName: top.playerName, playerAvatar: top.playerAvatar, questionText: round.questionText }]
+      ? [
+          {
+            url: top.url,
+            playerName: top.playerName,
+            playerAvatar: top.playerAvatar,
+            questionText: round.questionText,
+            questionNum: round.questionIndex + 1,
+          },
+        ]
       : []
   }),
 )
@@ -159,6 +168,7 @@ onMounted(() => {
     <section v-if="wall.length" class="card mt-6">
       <h2 class="font-bold">本場得獎照片牆</h2>
       <p class="mt-1 text-xs text-slate-500">照片只存在記憶體，離開這個房間後就會被刪掉。</p>
+      <WinnersDownload v-if="isHost" :room-id="roomId" :items="highlights" class="mt-4 !justify-start" />
 
       <ul class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <li v-for="(photo, index) in wall" :key="`${photo.photoId}-${index}`">
@@ -228,6 +238,7 @@ onMounted(() => {
 
     <ChampionReveal
       v-if="showReveal"
+      :room-id="roomId"
       :highlights="highlights"
       :champions="champions"
       @done="showReveal = false"

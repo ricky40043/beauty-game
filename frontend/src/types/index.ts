@@ -109,6 +109,8 @@ export interface RoomSetup {
   categories: string[]
   /** 每題得獎名額，0 = 全部投稿都能排名 */
   maxWinners: number
+  /** 得獎畫面停幾秒自動下一題，0 = 手動 */
+  resultSeconds: number
   requireNickname: boolean
   practiceRound: boolean
 }

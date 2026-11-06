@@ -17,23 +17,49 @@ function resolveWsUrl() {
   return `${protocol}://${window.location.host}/ws`
 }
 
-export function loadSession(): StoredSession | null {
-  const raw = localStorage.getItem(SESSION_KEY)
-  if (!raw) return null
+/*
+ * 身分同時存兩份：
+ * - sessionStorage：每個分頁各自一份，重新整理還在。同一台電腦開房主分頁和玩家分頁測試時，
+ *   localStorage 是共用的，只存那裡的話玩家分頁一加入就把房主身分蓋掉，房主分頁重新整理後
+ *   就變成誰都不是的空殼畫面。
+ * - localStorage：關掉分頁、重掃 QR code 開的新分頁沒有 sessionStorage，靠這份接回原本的人。
+ * 讀的時候先看自己分頁的那份。
+ */
+const stores = (): Storage[] => {
+  const out: Storage[] = []
   try {
-    return JSON.parse(raw) as StoredSession
+    out.push(sessionStorage)
   } catch {
-    localStorage.removeItem(SESSION_KEY)
-    return null
+    /* 隱私模式等情況拿不到就略過 */
   }
+  try {
+    out.push(localStorage)
+  } catch {
+    /* 同上 */
+  }
+  return out
+}
+
+export function loadSession(): StoredSession | null {
+  for (const store of stores()) {
+    const raw = store.getItem(SESSION_KEY)
+    if (!raw) continue
+    try {
+      return JSON.parse(raw) as StoredSession
+    } catch {
+      store.removeItem(SESSION_KEY)
+    }
+  }
+  return null
 }
 
 function saveSession(session: StoredSession) {
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+  const raw = JSON.stringify(session)
+  for (const store of stores()) store.setItem(SESSION_KEY, raw)
 }
 
 export function clearSession() {
-  localStorage.removeItem(SESSION_KEY)
+  for (const store of stores()) store.removeItem(SESSION_KEY)
 }
 
 export const useSocketStore = defineStore('socket', () => {
@@ -91,12 +117,30 @@ export const useSocketStore = defineStore('socket', () => {
     const ws = new WebSocket(resolveWsUrl())
     socket.value = ws
 
-    ws.onopen = () => {
+    ws.onopen = async () => {
       isConnected.value = true
       reconnectAttempts.value = 0
 
-      // 有舊 session 就先問伺服器房間還在不在，再決定要不要重連
+      // 剛開頁時 WebSocket 可能比路由先就緒，這時 currentRoute 還是起始的 "/"，
+      // 判斷不出自己在加入頁還是大廳，會把房主瀏覽器開的加入連結拉回主畫面
+      await router.isReady()
+
       const session = loadSession()
+      const route = router.currentRoute.value
+      const routeRoomId = String(route.params.roomId ?? '').toUpperCase()
+
+      // 打開某間房的大廳／遊戲／結算網址，手上卻沒有這間房的身分（換了瀏覽器、身分被清掉），
+      // 不要留在一個沒有名字、0 人的空殼畫面，帶去這間房的加入頁
+      if (onRoomPage() && routeRoomId && session?.roomId !== routeRoomId) {
+        ui.showInfo('你目前不在這個房間，加入後就能一起玩')
+        navigate(`/join/${routeRoomId}`)
+        return
+      }
+
+      // 在加入頁時，房主身分不自動接回：同一台電腦想再開一個玩家分頁，不該被拉回主畫面
+      if (route.name === 'join' && session?.isHost) return
+
+      // 有舊 session 就先問伺服器房間還在不在，再決定要不要重連
       if (session?.roomId) {
         send('CHECK_ROOM', { roomId: session.roomId, playerId: session.playerId })
       }
@@ -254,6 +298,12 @@ export const useSocketStore = defineStore('socket', () => {
         break
 
       case 'ROUND_RESULT':
+        // 沒有得獎者時伺服器會緊接著送下一題（或結算），這裡只同步分數，
+        // 不切到「公布結果」畫面，免得閃一下「這題沒有選出得獎者」
+        if (data.empty) {
+          if (Array.isArray(data.scores)) game.scores = data.scores
+          break
+        }
         game.applyRoundResult(
           {
             questionIndex: data.questionIndex,
@@ -449,6 +499,7 @@ export const useSocketStore = defineStore('socket', () => {
       customQuestions: setup.customQuestions,
       categories: setup.mode === 'solo' ? setup.categories : [],
       maxWinners: setup.maxWinners,
+      resultSeconds: setup.resultSeconds,
       requireNickname: setup.requireNickname,
       practiceRound: setup.practiceRound,
     })

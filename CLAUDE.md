@@ -58,12 +58,12 @@ cd frontend && npm run type-check
 主畫面（房主）與手機端（玩家）共用 `LobbyView`，用 `isHost` 分岔成兩套版面。
 
 **關鍵元件：**
-- `CameraCapture.vue` — 主路徑 `getUserMedia` 全螢幕預覽 + 前後鏡頭切換；不可用時自動退回 `<input type="file" capture>`。拍完進預覽可重拍
+- `CameraCapture.vue` — 主路徑 `getUserMedia` 全螢幕預覽 + 前後鏡頭切換；不可用時自動退回 `<input type="file" capture>`。按快門就直接上傳（沒有確認步驟），失敗才出現「再傳一次」，重拍會覆蓋
 - `PhotoPopupLayer.vue` — 照片彈出停 **3 秒**淡出，隨機 **±30 度**傾斜疊成相片堆。傾斜角走 CSS 變數 `--tilt`，否則進場動畫的 `scale()` 會把旋轉整個覆蓋掉
 - `PhotoStrip.vue` — 主畫面常駐「最快前 5 張」縮圖，可點開燈箱
 - `JudgePanel.vue` — 房主評選，點選順序即名次，徽章以大數字顯示名次、分數小字附註
 - `QuestionPicker.vue` — 建房與大廳共用的題目選擇器（分類、搜尋、排序、自訂題）
-- `ChampionReveal.vue` — 結算時只在主畫面播的冠軍動畫：每題第一名照片快閃（越來越快）→ 停頓 → 冠軍登場，最後讓房主選「下載冠軍照片」或「取消」。號角與掌聲由 `useCheer.ts` 用 Web Audio 合成，不打包音檔
+- `ChampionReveal.vue` — 結算時只在主畫面播的冠軍動畫：每題第一名照片快閃（越來越快）→ 停頓 → 冠軍登場，最後讓房主選下載（`WinnersDownload.vue`：每題第 1 名 zip 或 canvas 拼貼圖）或取消。號角與掌聲由 `useCheer.ts` 用 Web Audio 合成，不打包音檔
 
 ## 題庫來源
 
@@ -111,6 +111,9 @@ cd frontend && npm run type-check
 - 完成上傳 +10
 - 抵達順序前三 +15 / +10 / +5
 - 得獎依房主點選順序 100 / 80 / 60 / 40 / 20，第 6 名起 10 分（`PointsForRank`）
+- 公布得獎後停 `Room.ResultSeconds` 秒（預設 2，0 = 手動）由伺服器自動換題（`scheduleAutoAdvance`），主畫面底部有倒數條。
+  計時器與房主按「下一題」可能同時發生，兩邊都要先 `ClaimAdvance` 搶換題權，否則會連跳兩題
+- 沒有得獎者（沒人投稿或房主選「這題都不選」）時伺服器送 empty 的 ROUND_RESULT 後直接換題（`skipAndAdvance`），前端不切到結果畫面
 - 每題得獎名額 `Room.MaxWinners` 建房與大廳都可設，預設 5，0 = 全部投稿都能排名
 - 排行榜同分同名次（1、1、3），同分第一名全部算冠軍
 - 團體模式該回合有得獎時，全場每人再 +50 合作分
@@ -121,7 +124,7 @@ cd frontend && npm run type-check
 
 **Server → Client：** `ROOM_CREATED`、`JOIN_SUCCESS`、`PLAYER_JOINED/LEFT/DISCONNECTED/REJOINED/RENAMED`、`ROOM_STATUS`、`REJOIN_SUCCESS`、`SETTINGS_UPDATED`、`GAME_STARTED`、`NEW_QUESTION`、`TIMER_UPDATE`、`PHOTO_SUBMITTED`、`PHOTO_ACCEPTED`、`ROUND_CLOSED`、`ROUND_RESULT`、`GAME_FINISHED`、`ROOM_RESET_TO_LOBBY`、`ROOM_CLOSED`、`HOST_DISCONNECTED/RECONNECTED`、`ERROR`、`PONG`
 
-**REST 端點：** `/api/health`、`/api/questions`、`/api/questions/:id/example`、`/api/rooms/:roomId`、`/api/rooms/:roomId/photos`、`/api/photos/:photoId`、`/api/admin/examples`、`/api/admin/questions/:id/example`
+**REST 端點：** `/api/health`、`/api/rooms/:roomId/winners.zip`（每題第 1 名打包）、`/api/questions`、`/api/questions/:id/example`、`/api/rooms/:roomId`、`/api/rooms/:roomId/photos`、`/api/photos/:photoId`、`/api/admin/examples`、`/api/admin/questions/:id/example`
 
 **照片不走 WebSocket。** 前端壓縮後 `POST /api/rooms/:roomId/photos`（multipart，欄位 `photo`）拿到 `photoId`，再用 `SUBMIT_PHOTO` 送 id；`maxMessageSize` 因此只有 8KB。
 
@@ -150,7 +153,9 @@ cd frontend && npm run type-check
 - **`getUserMedia` 需要 HTTPS 或 localhost。** 手機用區網 IP 走 http 連 dev server 時網頁相機會被擋，`CameraCapture` 會自動退回系統相機，功能不受影響
 - 房主不是玩家：房主只負責主畫面與評選，不參與拍照與計分
 - 房主身分靠 `hostToken`（localStorage）驗證，換連線重連後仍是房主
-- 玩家身分靠 localStorage 的 `playerId`：斷線、重新整理、關分頁重掃 QR 都會接回同一人（名字、分數、本題投稿都在）。
+- 身分同時存在 sessionStorage（每個分頁各自一份）與 localStorage（新分頁、重掃 QR 用），讀的時候先看分頁自己的。
+  同一台電腦開房主分頁＋玩家分頁時才不會互相蓋掉。打開大廳／遊戲／結算網址卻沒有這間房的身分，會被帶到加入頁
+- 玩家身分靠 `playerId`：斷線、重新整理、關分頁重掃 QR 都會接回同一人（名字、分數、本題投稿都在）。
   `joinRoom()` 發現手上已有同一間房的 session 時會先走 `CHECK_ROOM → REJOIN_ROOM`，伺服器說人不在了才真的 `JOIN_ROOM` ——
   否則玩家按上一頁回加入頁再按「加入」會變成新玩家、留下幽靈。換瀏覽器（例如 LINE 內建瀏覽器 vs Safari）storage 不共用，會是新玩家
 
