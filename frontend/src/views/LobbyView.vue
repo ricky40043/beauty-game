@@ -6,6 +6,7 @@ import QRCodeDisplay from '@/components/QRCodeDisplay.vue'
 import QuestionPicker from '@/components/QuestionPicker.vue'
 import RandomSettings from '@/components/RandomSettings.vue'
 import ResultSecondsField from '@/components/ResultSecondsField.vue'
+import VoteSettingsField from '@/components/VoteSettingsField.vue'
 import { useGameStore } from '@/stores/game'
 import { useSocketStore } from '@/stores/socket'
 import { useUIStore } from '@/stores/ui'
@@ -29,6 +30,9 @@ const {
   maxWinners,
   resultSeconds,
   randomCategories,
+  voteMode,
+  voteCandidates,
+  voteSeconds,
 } = storeToRefs(game)
 
 const editingQuestions = ref(false)
@@ -37,6 +41,9 @@ const draftCustomQuestions = ref<string[]>([])
 const draftTimeLimit = ref(questionTimeLimit.value)
 const draftMaxWinners = ref(maxWinners.value)
 const draftResultSeconds = ref(resultSeconds.value)
+const draftVoteMode = ref(voteMode.value)
+const draftVoteCandidates = ref(voteCandidates.value)
+const draftVoteSeconds = ref(voteSeconds.value)
 
 // 隨機出題設定：再來一局時可以重新調題數、分類、難度
 const editingRandom = ref(false)
@@ -64,6 +71,9 @@ const openEditor = () => {
   draftTimeLimit.value = questionTimeLimit.value
   draftMaxWinners.value = maxWinners.value
   draftResultSeconds.value = resultSeconds.value
+  draftVoteMode.value = voteMode.value
+  draftVoteCandidates.value = voteCandidates.value
+  draftVoteSeconds.value = voteSeconds.value
   editingQuestions.value = true
 }
 
@@ -79,6 +89,9 @@ const saveQuestions = () => {
     questionTimeLimit: draftTimeLimit.value,
     maxWinners: draftMaxWinners.value,
     resultSeconds: draftResultSeconds.value,
+    voteMode: draftVoteMode.value,
+    voteCandidates: draftVoteCandidates.value,
+    voteSeconds: draftVoteSeconds.value,
   })
   editingQuestions.value = false
 }
@@ -89,6 +102,9 @@ const openRandom = () => {
   draftTimeLimit.value = questionTimeLimit.value
   draftMaxWinners.value = maxWinners.value
   draftResultSeconds.value = resultSeconds.value
+  draftVoteMode.value = voteMode.value
+  draftVoteCandidates.value = voteCandidates.value
+  draftVoteSeconds.value = voteSeconds.value
   editingRandom.value = true
 }
 
@@ -101,11 +117,17 @@ const saveRandom = () => {
     questionTimeLimit: draftTimeLimit.value,
     maxWinners: draftMaxWinners.value,
     resultSeconds: draftResultSeconds.value,
+    voteMode: draftVoteMode.value,
+    voteCandidates: draftVoteCandidates.value,
+    voteSeconds: draftVoteSeconds.value,
   })
   editingRandom.value = false
 }
 
-const winnersLabel = computed(() => (maxWinners.value > 0 ? `得獎前 ${maxWinners.value} 名` : '全部排名'))
+const winnersLabel = computed(() => {
+  const winners = maxWinners.value > 0 ? `得獎前 ${maxWinners.value} 名` : '全部排名'
+  return voteMode.value ? `🗳 投票模式（前 ${voteCandidates.value} 張、${voteSeconds.value} 秒）· ${winners}` : winners
+})
 
 // 上一場結束後房間狀態是 finished，這時候送 START_GAME 會被後端擋下來，
 // 必須先重置回大廳，所以按鈕在這種情況下改成「開新的一局」。
@@ -278,6 +300,11 @@ const confirmRename = () => {
           </label>
           <MaxWinnersField v-model="draftMaxWinners" />
           <ResultSecondsField v-model="draftResultSeconds" />
+          <VoteSettingsField
+            v-model:enabled="draftVoteMode"
+            v-model:candidates="draftVoteCandidates"
+            v-model:seconds="draftVoteSeconds"
+          />
         </section>
 
         <button class="btn-primary w-full py-4" @click="saveRandom">重新抽題並儲存</button>
@@ -313,6 +340,11 @@ const confirmRename = () => {
         <section class="card">
           <MaxWinnersField v-model="draftMaxWinners" />
           <ResultSecondsField v-model="draftResultSeconds" />
+          <VoteSettingsField
+            v-model:enabled="draftVoteMode"
+            v-model:candidates="draftVoteCandidates"
+            v-model:seconds="draftVoteSeconds"
+          />
         </section>
 
         <QuestionPicker

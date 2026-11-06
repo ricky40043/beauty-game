@@ -46,6 +46,14 @@ export const useGameStore = defineStore('game', () => {
   const maxWinners = ref(5)
   /** 得獎畫面停幾秒自動下一題，0 = 手動 */
   const resultSeconds = ref(2)
+  /** 投票模式設定 */
+  const voteMode = ref(false)
+  const voteCandidates = ref(5)
+  const voteSeconds = ref(10)
+  /** 本題各照片主人的票數（playerId → 票數） */
+  const voteCounts = ref<Record<string, number>>({})
+  /** 我這題投給誰（照片主人的 playerId） */
+  const myVote = ref('')
   /** 隨機抽題勾的分類，大廳重新抽題時帶入 */
   const randomCategories = ref<string[]>([])
   const roundResult = ref<RoundResult | null>(null)
@@ -82,6 +90,11 @@ export const useGameStore = defineStore('game', () => {
     if (Array.isArray(payload.questions)) questions.value = payload.questions
     if (typeof payload.maxWinners === 'number') maxWinners.value = payload.maxWinners
     if (typeof payload.resultSeconds === 'number') resultSeconds.value = payload.resultSeconds
+    if (typeof payload.voteMode === 'boolean') voteMode.value = payload.voteMode
+    if (typeof payload.voteCandidates === 'number') voteCandidates.value = payload.voteCandidates
+    if (typeof payload.voteSeconds === 'number') voteSeconds.value = payload.voteSeconds
+    if (payload.voteCounts) voteCounts.value = payload.voteCounts
+    if (typeof payload.myVote === 'string') myVote.value = payload.myVote
     if (payload.randomCategories !== undefined) randomCategories.value = payload.randomCategories ?? []
     if (Array.isArray(payload.players)) players.value = payload.players
   }
@@ -113,6 +126,8 @@ export const useGameStore = defineStore('game', () => {
     roundPhotos.value = []
     myPhotoUrl.value = ''
     roundResult.value = null
+    voteCounts.value = {}
+    myVote.value = ''
     status.value = 'shooting'
   }
 
@@ -129,6 +144,14 @@ export const useGameStore = defineStore('game', () => {
 
     roundPhotos.value.push(photo)
     if (photo.playerId === playerId.value) myPhotoUrl.value = photo.url
+  }
+
+  /** 投票模式收桌：候選照片定案，開始投票倒數 */
+  const startVoting = (photos: PhotoSubmission[], seconds: number, counts?: Record<string, number>) => {
+    if (Array.isArray(photos)) roundPhotos.value = photos
+    timeLeft.value = seconds
+    if (counts) voteCounts.value = counts
+    status.value = 'voting'
   }
 
   const closeRound = (photos: PhotoSubmission[]) => {
@@ -208,6 +231,12 @@ export const useGameStore = defineStore('game', () => {
     scores,
     maxWinners,
     resultSeconds,
+    voteMode,
+    voteCandidates,
+    voteSeconds,
+    voteCounts,
+    myVote,
+    startVoting,
     randomCategories,
     roundResult,
     history,

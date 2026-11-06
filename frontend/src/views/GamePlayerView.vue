@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import CameraCapture from '@/components/CameraCapture.vue'
+import VotePanel from '@/components/VotePanel.vue'
 import { uploadPhoto } from '@/services/api'
 import { useGameStore } from '@/stores/game'
 import { useSocketStore } from '@/stores/socket'
@@ -28,6 +29,11 @@ const {
   playerName,
   avatar,
   isPractice,
+  roundPhotos,
+  voteMode,
+  voteCandidates,
+  voteCounts,
+  myVote,
 } = storeToRefs(game)
 
 const camera = ref<InstanceType<typeof CameraCapture> | null>(null)
@@ -42,6 +48,20 @@ const leave = () => {
 }
 
 const canShoot = computed(() => status.value === 'shooting')
+
+/** 這一題要投票（試玩不投） */
+const voting = computed(() => voteMode.value && !isPractice.value)
+/** 拍照中可以在「拍照」與「投票」兩個分頁之間切換；交完照片自動切到投票 */
+const tab = ref<'shoot' | 'vote'>('shoot')
+watch(
+  () => question.value?.questionId,
+  () => (tab.value = 'shoot'),
+)
+watch(myPhotoUrl, (url, old) => {
+  if (url && !old && voting.value) tab.value = 'vote'
+})
+
+const vote = (target: string) => socket.castVote(target)
 
 // 換題時把停在「已拍好等上傳」的畫面切回相機，不用自己按重拍
 watch(
@@ -131,7 +151,44 @@ const submit = async (blob: Blob) => {
     </header>
 
     <!-- 拍照階段：相機吃掉所有剩餘空間 -->
-    <section v-if="canShoot" class="mt-2 flex min-h-0 flex-1 flex-col">
+    <!-- 投票模式拍照中：拍照／投票兩個分頁 -->
+    <div v-if="canShoot && voting" class="mt-2 grid shrink-0 grid-cols-2 gap-2">
+      <button
+        class="rounded-xl py-2 text-sm font-bold transition"
+        :class="tab === 'shoot' ? 'bg-blush-500 text-white' : 'bg-white/5 text-slate-400'"
+        @click="tab = 'shoot'"
+      >
+        📷 拍照
+      </button>
+      <button
+        class="rounded-xl py-2 text-sm font-bold transition"
+        :class="tab === 'vote' ? 'bg-blush-500 text-white' : 'bg-white/5 text-slate-400'"
+        @click="tab = 'vote'"
+      >
+        🗳 投票（{{ roundPhotos.length }}/{{ voteCandidates }}）
+      </button>
+    </div>
+
+    <section
+      v-if="canShoot && voting && tab === 'vote'"
+      class="mt-2 flex min-h-0 flex-1 flex-col overflow-y-auto"
+    >
+      <p class="mb-2 shrink-0 text-center text-xs text-slate-400">
+        湊滿 {{ voteCandidates }} 張就開始投票倒數 · 每人一票，可以改投
+      </p>
+      <VotePanel :photos="roundPhotos" :counts="voteCounts" :my-vote="myVote" :my-id="playerId" @vote="vote" />
+    </section>
+
+    <!-- 投票倒數中 -->
+    <section v-else-if="status === 'voting'" class="mt-2 flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div class="mb-3 shrink-0 text-center">
+        <h2 class="text-xl font-black">🗳 投票中！</h2>
+        <p class="text-xs text-slate-400">投給你最喜歡的一張（不能投自己），還剩 {{ timeLeft }} 秒</p>
+      </div>
+      <VotePanel :photos="roundPhotos" :counts="voteCounts" :my-vote="myVote" :my-id="playerId" @vote="vote" />
+    </section>
+
+    <section v-else-if="canShoot" class="mt-2 flex min-h-0 flex-1 flex-col">
       <p
         v-if="myPhotoUrl"
         class="mb-1.5 shrink-0 rounded-xl bg-emerald-500/15 px-3 py-1.5 text-center text-xs text-emerald-100"
@@ -167,6 +224,7 @@ const submit = async (blob: Blob) => {
         <div class="text-6xl">🏆</div>
         <h2 class="text-2xl font-black text-blush-300">第 {{ myWin.rank }} 名！</h2>
         <p class="text-lg font-bold text-emerald-300">+{{ myWin.points }} 分</p>
+        <p v-if="myWin.votes" class="text-sm text-slate-300">拿到 {{ myWin.votes }} 票</p>
       </template>
       <template v-else>
         <div class="text-6xl">🙈</div>

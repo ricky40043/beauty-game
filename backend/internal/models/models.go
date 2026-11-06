@@ -20,6 +20,7 @@ const (
 	RoomStatusWaiting     RoomStatus = "waiting"      // 大廳等待
 	RoomStatusShooting    RoomStatus = "shooting"     // 拍照中（倒數進行）
 	RoomStatusJudging     RoomStatus = "judging"      // 房主評選中
+	RoomStatusVoting      RoomStatus = "voting"       // 投票模式：玩家投票倒數中
 	RoomStatusRoundResult RoomStatus = "round_result" // 公布本題得獎
 	RoomStatusFinished    RoomStatus = "finished"     // 全部題目結束
 	RoomStatusAbandoned   RoomStatus = "abandoned"    // 全員離線，等待清理
@@ -87,6 +88,7 @@ type RoundWinner struct {
 	PlayerAvatar string `json:"playerAvatar"`
 	Rank         int    `json:"rank"` // 1~5，房主點選的順序
 	Points       int    `json:"points"`
+	Votes        int    `json:"votes,omitempty"` // 投票模式拿到的票數
 }
 
 // RoundResult 一題的完整結果，供結算頁照片牆使用
@@ -124,6 +126,15 @@ type Room struct {
 
 	// ResultSeconds 公布得獎後停幾秒自動進下一題，0 代表等房主按「下一題」
 	ResultSeconds int `json:"resultSeconds"`
+	// VoteMode 投票模式：最快的前 VoteCandidates 張是候選，玩家用手機投票（不能投自己），
+	// 湊滿就停止收照片、開始 VoteSeconds 秒的投票倒數，依票數排名給分
+	VoteMode       bool `json:"voteMode"`
+	VoteCandidates int  `json:"voteCandidates"`
+	VoteSeconds    int  `json:"voteSeconds"`
+	// Votes 本題的投票：投票者 playerId → 被投的照片主人 playerId。
+	// 用照片主人而不是 photoId 記，重拍換照片時票不會不見
+	Votes map[string]string `json:"-"`
+
 	// Advancing 這題的結果畫面已經有人（自動計時或房主）負責換題了，另一方不要再換一次
 	Advancing bool `json:"-"`
 
@@ -178,6 +189,9 @@ type CreateRoomRequest struct {
 	Categories        []string `json:"categories"`      // 隨機模式：只從這些分類平均抽；空的代表全部
 	MaxWinners        *int     `json:"maxWinners"`      // 每題得獎名額，0 = 不限；沒帶就用預設 5
 	ResultSeconds     *int     `json:"resultSeconds"`   // 得獎畫面停幾秒自動下一題，0 = 手動；沒帶就用預設 2
+	VoteMode          *bool    `json:"voteMode"`        // 投票模式：玩家投票決定名次
+	VoteCandidates    *int     `json:"voteCandidates"`  // 投票模式的候選張數（最快的前 N 張）
+	VoteSeconds       *int     `json:"voteSeconds"`     // 投票倒數秒數
 	RequireNickname   bool     `json:"requireNickname"`
 	PracticeRound     bool     `json:"practiceRound"`
 }

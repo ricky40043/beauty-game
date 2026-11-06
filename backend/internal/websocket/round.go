@@ -82,7 +82,7 @@ func (h *Hub) closeRound(room *models.Room, reason string) {
 		return
 	}
 
-	photos := h.gameService.CloseRound(room)
+	photos, voting := h.gameService.CloseRound(room)
 
 	h.BroadcastToRoom(room.ID, "ROUND_CLOSED", map[string]any{
 		"roomId":        room.ID,
@@ -90,12 +90,103 @@ func (h *Hub) closeRound(room *models.Room, reason string) {
 		"reason":        reason,
 		"photos":        photos,
 		"totalPhotos":   len(photos),
+		"voting":        voting,
 	})
 
 	// 一張都沒有就沒得選，直接進下一題
 	if len(photos) == 0 {
 		h.skipAndAdvance(room)
+		return
 	}
+
+	if voting {
+		h.BroadcastToRoom(room.ID, "VOTING_STARTED", map[string]any{
+			"roomId":        room.ID,
+			"questionIndex": room.CurrentQuestion,
+			"photos":        photos,
+			"timeLeft":      room.VoteSeconds,
+			"voteCounts":    h.gameService.VoteCounts(room),
+		})
+		go h.runVoteTimer(room, h.gameService.Seq(room))
+	}
+}
+
+// runVoteTimer 投票倒數，每秒推一次 TIMER_UPDATE；到點就依票數公布結果
+func (h *Hub) runVoteTimer(room *models.Room, seq int) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		timeLeft, expired, stale := h.gameService.TickStatus(room, seq, models.RoomStatusVoting)
+		if stale {
+			return
+		}
+
+		h.BroadcastToRoom(room.ID, "TIMER_UPDATE", map[string]any{
+			"roomId":        room.ID,
+			"questionIndex": room.CurrentQuestion,
+			"timeLeft":      timeLeft,
+		})
+
+		if expired {
+			h.finishVoting(room)
+			return
+		}
+	}
+}
+
+// finishVoting 依票數公布結果；沒人投票就當作這題沒有得獎者
+func (h *Hub) finishVoting(room *models.Room) {
+	result, scores, ok := h.gameService.ApplyVotes(room)
+	if !ok {
+		h.skipAndAdvance(room)
+		return
+	}
+
+	h.BroadcastToRoom(room.ID, "ROUND_RESULT", map[string]any{
+		"roomId":        room.ID,
+		"questionIndex": result.QuestionIndex,
+		"questionText":  result.QuestionText,
+		"winners":       result.Winners,
+		"groupBonus":    result.GroupBonus,
+		"scores":        scores,
+		"empty":         false,
+		"autoNextSec":   room.ResultSeconds,
+		"byVote":        true,
+	})
+	h.scheduleAutoAdvance(room)
+}
+
+// handleCastVote 玩家投票（targetPlayerId 空字串 = 收回）
+func (c *Client) handleCastVote(data any) {
+	if c.RoomID == "" || c.IsHost {
+		c.sendError("NOT_PLAYER", "只有玩家可以投票")
+		return
+	}
+	var req struct {
+		TargetPlayerID string `json:"targetPlayerId"`
+	}
+	if err := decode(data, &req); err != nil {
+		c.sendError("BAD_PAYLOAD", "投票參數格式錯誤")
+		return
+	}
+	room, err := c.hub.roomService.GetRoom(c.RoomID)
+	if err != nil {
+		c.sendError("ROOM_NOT_FOUND", "房間已經不存在了")
+		return
+	}
+
+	counts, err := c.hub.gameService.CastVote(room, c.PlayerID, req.TargetPlayerID)
+	if err != nil {
+		c.sendError("VOTE_FAILED", err.Error())
+		return
+	}
+
+	c.sendMessage("VOTE_ACCEPTED", map[string]any{"targetPlayerId": req.TargetPlayerID})
+	c.hub.BroadcastToRoom(room.ID, "VOTES_UPDATED", map[string]any{
+		"roomId":     room.ID,
+		"voteCounts": counts,
+	})
 }
 
 // skipAndAdvance 本題沒有得獎者（沒人投稿，或房主選「這題都不選」）：
@@ -194,6 +285,10 @@ func (c *Client) handleStartGame() {
 		"roomId":         room.ID,
 		"mode":           room.Mode,
 		"totalQuestions": len(room.Questions),
+		// 玩家手機要知道這場是不是投票模式，才會出現「拍照／投票」分頁
+		"voteMode":       room.VoteMode,
+		"voteCandidates": room.VoteCandidates,
+		"voteSeconds":    room.VoteSeconds,
 	})
 
 	c.hub.startRound(room)
@@ -372,6 +467,8 @@ func (c *Client) handleSubmitPhoto(data any) {
 		switch err {
 		case services.ErrNotShooting:
 			c.sendError("NOT_SHOOTING", "現在不是拍照時間")
+		case services.ErrCandidatesFull:
+			c.sendError("NOT_SHOOTING", err.Error())
 		default:
 			c.sendError("SUBMIT_FAILED", err.Error())
 		}
@@ -399,6 +496,12 @@ func (c *Client) handleSubmitPhoto(data any) {
 		"submitted":     len(room.RoundPhotos),
 		"totalPlayers":  room.ConnectedPlayerCount(),
 	})
+
+	// 投票模式湊滿候選張數就停止收照片、開始投票倒數
+	if c.hub.gameService.CandidatesFull(room) {
+		c.hub.closeRound(room, "候選照片湊滿了，開始投票！")
+		return
+	}
 
 	// 單人模式全員交卷就提前收桌，不用等倒數走完
 	if c.hub.gameService.AllPlayersSubmitted(room) {

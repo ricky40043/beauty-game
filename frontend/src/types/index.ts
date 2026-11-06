@@ -4,6 +4,7 @@ export type RoomStatus =
   | 'waiting'
   | 'shooting'
   | 'judging'
+  | 'voting'
   | 'round_result'
   | 'finished'
   | 'abandoned'
@@ -49,6 +50,8 @@ export interface RoundWinner {
   playerAvatar: string
   rank: number
   points: number
+  /** 投票模式拿到的票數 */
+  votes?: number
 }
 
 export interface RoundResult {
@@ -111,6 +114,12 @@ export interface RoomSetup {
   maxWinners: number
   /** 得獎畫面停幾秒自動下一題，0 = 手動 */
   resultSeconds: number
+  /** 投票模式：玩家投票決定名次 */
+  voteMode: boolean
+  /** 投票模式的候選張數（最快的前 N 張） */
+  voteCandidates: number
+  /** 投票倒數秒數 */
+  voteSeconds: number
   requireNickname: boolean
   practiceRound: boolean
 }

@@ -1115,3 +1115,111 @@ func TestResetDrawsFreshQuestions(t *testing.T) {
 		t.Fatalf("自選題目再來一局應維持 %v，實際 %v", picked, again)
 	}
 }
+
+// TestVoteMode 投票模式：拍照中就能投、湊滿候選張數開始投票倒數、不能投自己、
+// 可以改投，倒數結束依票數排名給分
+func TestVoteMode(t *testing.T) {
+	srv := newTestServer(t)
+
+	host := srv.dial(t)
+	host.send("CREATE_ROOM", map[string]any{
+		"hostName": "主持人", "mode": "solo", "questionMode": "random",
+		"totalQuestions": 1, "questionTimeLimit": 60,
+		"voteMode": true, "voteCandidates": 2, "voteSeconds": 5, "resultSeconds": 0,
+	})
+	created := host.await("ROOM_CREATED")
+	roomID, _ := created["roomId"].(string)
+	if created["voteMode"] != true {
+		t.Fatal("建房回應應該帶 voteMode=true")
+	}
+
+	join := func(name string) (*conn, string) {
+		p := srv.dial(t)
+		p.send("JOIN_ROOM", map[string]any{"roomId": roomID, "playerName": name})
+		id, _ := p.await("JOIN_SUCCESS")["playerId"].(string)
+		return p, id
+	}
+	a, aID := join("阿明")
+	b, bID := join("小華")
+	c, _ := join("小美")
+
+	host.send("START_GAME", map[string]any{})
+	host.await("NEW_QUESTION")
+
+	upload := func(p *conn) {
+		photoID := srv.uploadPhoto(t, roomID)
+		p.send("SUBMIT_PHOTO", map[string]any{"photoId": photoID})
+	}
+
+	upload(a)
+	a.await("PHOTO_ACCEPTED")
+
+	// 拍照中就能投；先投給阿明，等等改投
+	b.send("CAST_VOTE", map[string]any{"targetPlayerId": aID})
+	b.await("VOTE_ACCEPTED")
+
+	// 不能投自己
+	a.send("CAST_VOTE", map[string]any{"targetPlayerId": aID})
+	if msg := waitFor(t, a, "ERROR", 3*time.Second); msg["code"] != "VOTE_FAILED" {
+		t.Fatalf("投自己應該被拒絕，實際 %v", msg)
+	}
+
+	// 第 2 張湊滿候選，進投票倒數
+	upload(b)
+	started := host.await("VOTING_STARTED")
+	if photos, _ := started["photos"].([]any); len(photos) != 2 {
+		t.Fatalf("候選應該是 2 張，實際 %v", started["photos"])
+	}
+
+	// 湊滿後第 3 個人上傳要被擋
+	upload(c)
+	if msg := waitFor(t, c, "ERROR", 3*time.Second); msg["code"] != "NOT_SHOOTING" {
+		t.Fatalf("候選滿了還能上傳：%v", msg)
+	}
+
+	a.send("CAST_VOTE", map[string]any{"targetPlayerId": bID})
+	a.await("VOTE_ACCEPTED")
+	c.send("CAST_VOTE", map[string]any{"targetPlayerId": bID})
+	c.await("VOTE_ACCEPTED")
+	// 小華改投：還是只能投阿明（不能投自己），重送一次確認改投不會重複計票
+	b.send("CAST_VOTE", map[string]any{"targetPlayerId": aID})
+	b.await("VOTE_ACCEPTED")
+
+	// 投票倒數 5 秒，比 await 的 5 秒逾時還緊，另外等久一點
+	result := waitFor(t, host, "ROUND_RESULT", 9*time.Second)
+	winners, _ := result["winners"].([]any)
+	if len(winners) != 2 {
+		t.Fatalf("2 張都有票，應該 2 位得獎，實際 %d", len(winners))
+	}
+	first, _ := winners[0].(map[string]any)
+	second, _ := winners[1].(map[string]any)
+	if first["playerId"] != bID || first["votes"] != float64(2) || first["points"] != float64(100) {
+		t.Fatalf("第 1 名應該是小華 2 票 100 分，實際 %v", first)
+	}
+	if second["playerId"] != aID || second["votes"] != float64(1) || second["rank"] != float64(2) {
+		t.Fatalf("第 2 名應該是阿明 1 票，實際 %v", second)
+	}
+}
+
+// waitFor 跟 await 一樣等某類訊息，但可以等 ERROR 本身、也能自訂逾時
+func waitFor(t *testing.T, c *conn, msgType string, timeout time.Duration) map[string]any {
+	t.Helper()
+	deadline := time.After(timeout)
+	for {
+		select {
+		case msg, ok := <-c.msgs:
+			if !ok {
+				t.Fatalf("等 %s 時連線已關閉", msgType)
+			}
+			if msg.Type == msgType {
+				out, _ := msg.Data.(map[string]any)
+				return out
+			}
+			if msg.Type == "ERROR" {
+				t.Fatalf("等 %s 卻收到 ERROR: %v", msgType, msg.Data)
+			}
+		case <-deadline:
+			t.Fatalf("等 %s 逾時", msgType)
+		}
+	}
+}

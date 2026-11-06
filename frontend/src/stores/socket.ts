@@ -295,7 +295,20 @@ export const useSocketStore = defineStore('socket', () => {
         break
 
       case 'ROUND_CLOSED':
-        game.closeRound(data.photos ?? [])
+        // 投票模式緊接著會有 VOTING_STARTED，不先切到「評選中」免得閃一下
+        if (!data.voting) game.closeRound(data.photos ?? [])
+        break
+
+      case 'VOTING_STARTED':
+        game.startVoting(data.photos ?? [], data.timeLeft ?? 0, data.voteCounts)
+        break
+
+      case 'VOTES_UPDATED':
+        game.voteCounts = data.voteCounts ?? {}
+        break
+
+      case 'VOTE_ACCEPTED':
+        game.myVote = data.targetPlayerId ?? ''
         break
 
       case 'ROUND_RESULT':
@@ -503,6 +516,9 @@ export const useSocketStore = defineStore('socket', () => {
       categories: setup.mode === 'solo' ? setup.categories : [],
       maxWinners: setup.maxWinners,
       resultSeconds: setup.resultSeconds,
+      voteMode: setup.voteMode,
+      voteCandidates: setup.voteCandidates,
+      voteSeconds: setup.voteSeconds,
       requireNickname: setup.requireNickname,
       practiceRound: setup.practiceRound,
     })
@@ -534,6 +550,8 @@ export const useSocketStore = defineStore('socket', () => {
   const endShooting = () => send('END_SHOOTING')
   const endPractice = () => send('END_PRACTICE')
   const pickWinners = (photoIds: string[]) => send('PICK_WINNERS', { photoIds })
+  /** 投給某張照片的主人；傳空字串是收回 */
+  const castVote = (targetPlayerId: string) => send('CAST_VOTE', { targetPlayerId })
   const skipRound = () => send('SKIP_ROUND')
   const nextQuestion = () => send('NEXT_QUESTION')
   const resetRoomToLobby = () => send('RESET_ROOM_TO_LOBBY')
@@ -560,6 +578,7 @@ export const useSocketStore = defineStore('socket', () => {
     endShooting,
     endPractice,
     pickWinners,
+    castVote,
     skipRound,
     nextQuestion,
     resetRoomToLobby,

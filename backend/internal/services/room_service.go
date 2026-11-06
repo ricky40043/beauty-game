@@ -83,6 +83,14 @@ func (s *RoomService) CreateRoom(req models.CreateRoomRequest) (*models.Room, er
 	if req.MaxWinners != nil {
 		maxWinners = clampMaxWinners(*req.MaxWinners)
 	}
+	voteCandidates := DefaultVoteCandidates
+	if req.VoteCandidates != nil {
+		voteCandidates = clampVoteCandidates(*req.VoteCandidates)
+	}
+	voteSeconds := DefaultVoteSeconds
+	if req.VoteSeconds != nil {
+		voteSeconds = clampVoteSeconds(*req.VoteSeconds)
+	}
 	resultSeconds := DefaultResultSeconds
 	if req.ResultSeconds != nil {
 		resultSeconds = clampResultSeconds(*req.ResultSeconds)
@@ -111,6 +119,9 @@ func (s *RoomService) CreateRoom(req models.CreateRoomRequest) (*models.Room, er
 		PlayedQuestionIDs: make(map[int]bool),
 		MaxWinners:        maxWinners,
 		ResultSeconds:     resultSeconds,
+		VoteMode:          req.VoteMode != nil && *req.VoteMode,
+		VoteCandidates:    voteCandidates,
+		VoteSeconds:       voteSeconds,
 		CurrentQuestion:   -1,
 		QuestionTimeLimit: timeLimit,
 		History:           make([]models.RoundResult, 0),
@@ -306,6 +317,15 @@ func (s *RoomService) UpdateSettings(roomID string, patch SettingsPatch, questio
 	if patch.MaxWinners != nil {
 		room.MaxWinners = clampMaxWinners(*patch.MaxWinners)
 	}
+	if patch.VoteMode != nil {
+		room.VoteMode = *patch.VoteMode
+	}
+	if patch.VoteCandidates != nil {
+		room.VoteCandidates = clampVoteCandidates(*patch.VoteCandidates)
+	}
+	if patch.VoteSeconds != nil {
+		room.VoteSeconds = clampVoteSeconds(*patch.VoteSeconds)
+	}
 	if patch.ResultSeconds != nil {
 		room.ResultSeconds = clampResultSeconds(*patch.ResultSeconds)
 	}
@@ -332,6 +352,9 @@ type SettingsPatch struct {
 	RequireNickname *bool
 	MaxWinners      *int
 	ResultSeconds   *int
+	VoteMode        *bool
+	VoteCandidates  *int
+	VoteSeconds     *int
 	Categories      *[]string
 	QuestionMode    string
 	Difficulty      string
@@ -387,6 +410,28 @@ func (s *RoomService) playedCopyLocked(room *models.Room) map[int]bool {
 		out[id] = true
 	}
 	return out
+}
+
+// clampVoteCandidates 候選張數 2~20：只有 1 張就沒得選了
+func clampVoteCandidates(n int) int {
+	if n < 2 {
+		return 2
+	}
+	if n > 20 {
+		return 20
+	}
+	return n
+}
+
+// clampVoteSeconds 投票倒數 5~25 秒
+func clampVoteSeconds(n int) int {
+	if n < 5 {
+		return 5
+	}
+	if n > MaxVoteSeconds {
+		return MaxVoteSeconds
+	}
+	return n
 }
 
 // clampResultSeconds 0 代表手動；其餘夾在 1~30 秒

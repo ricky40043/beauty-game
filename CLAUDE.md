@@ -121,11 +121,21 @@ cd frontend && npm run type-check
 - 排行榜同分同名次（1、1、3），同分第一名全部算冠軍
 - 團體模式該回合有得獎時，全場每人再 +50 合作分
 
+## 投票模式（`Room.VoteMode`）
+
+建房或大廳打開後，正式題不由房主評選，改由玩家投票：
+- 最快交的前 `VoteCandidates` 張（預設 5，2~20）是候選；湊滿就收桌（`CandidatesFull` → `closeRound`），之後再上傳回 `ErrCandidatesFull`
+- 拍照中就能投（`CAST_VOTE`），湊滿或拍照時間到後進 `voting` 狀態，倒數 `VoteSeconds` 秒（預設 10，5~25），由 `runVoteTimer` 驅動
+- 每人一票、可改投、不能投自己。票記成「投票者 → 照片主人 playerId」，重拍換照片票不會掉
+- 倒數結束 `ApplyVotes`：依票數排名（同票同名次、同票先交的排前面），0 票不算，套用得獎名額與 100/80/60… 分；沒人投票就當空結果直接下一題
+- 試玩回合不投票。主畫面拍照中點照片＝立刻開始投票倒數
+- 投票設定要出現在 `JOIN_SUCCESS`、`GAME_STARTED`，否則玩家手機不會出現「拍照／投票」分頁
+
 ## WebSocket 協定
 
-**Client → Server：** `CREATE_ROOM`、`JOIN_ROOM`、`REJOIN_ROOM`、`CHECK_ROOM`、`RENAME_PLAYER`、`UPDATE_SETTINGS`、`START_GAME`、`SUBMIT_PHOTO`、`END_SHOOTING`、`PICK_WINNERS`、`SKIP_ROUND`、`NEXT_QUESTION`、`RESET_ROOM_TO_LOBBY`、`LEAVE_ROOM`、`PING`
+**Client → Server：** `CREATE_ROOM`、`JOIN_ROOM`、`REJOIN_ROOM`、`CHECK_ROOM`、`RENAME_PLAYER`、`UPDATE_SETTINGS`、`START_GAME`、`SUBMIT_PHOTO`、`END_SHOOTING`、`PICK_WINNERS`、`CAST_VOTE`、`SKIP_ROUND`、`NEXT_QUESTION`、`RESET_ROOM_TO_LOBBY`、`LEAVE_ROOM`、`PING`
 
-**Server → Client：** `ROOM_CREATED`、`JOIN_SUCCESS`、`PLAYER_JOINED/LEFT/DISCONNECTED/REJOINED/RENAMED`、`ROOM_STATUS`、`REJOIN_SUCCESS`、`SETTINGS_UPDATED`、`GAME_STARTED`、`NEW_QUESTION`、`TIMER_UPDATE`、`PHOTO_SUBMITTED`、`PHOTO_ACCEPTED`、`ROUND_CLOSED`、`ROUND_RESULT`、`GAME_FINISHED`、`ROOM_RESET_TO_LOBBY`、`ROOM_CLOSED`、`HOST_DISCONNECTED/RECONNECTED`、`ERROR`、`PONG`
+**Server → Client：** `ROOM_CREATED`、`JOIN_SUCCESS`、`PLAYER_JOINED/LEFT/DISCONNECTED/REJOINED/RENAMED`、`ROOM_STATUS`、`REJOIN_SUCCESS`、`SETTINGS_UPDATED`、`GAME_STARTED`、`NEW_QUESTION`、`TIMER_UPDATE`、`PHOTO_SUBMITTED`、`PHOTO_ACCEPTED`、`ROUND_CLOSED`、`VOTING_STARTED`、`VOTES_UPDATED`、`VOTE_ACCEPTED`、`ROUND_RESULT`、`GAME_FINISHED`、`ROOM_RESET_TO_LOBBY`、`ROOM_CLOSED`、`HOST_DISCONNECTED/RECONNECTED`、`ERROR`、`PONG`
 
 **REST 端點：** `/api/health`、`/api/rooms/:roomId/winners.zip`（每題第 1 名打包）、`/api/questions`、`/api/questions/:id/example`、`/api/rooms/:roomId`、`/api/rooms/:roomId/photos`、`/api/photos/:photoId`、`/api/admin/examples`、`/api/admin/questions/:id/example`
 

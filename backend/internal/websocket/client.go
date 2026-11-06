@@ -187,6 +187,8 @@ func (c *Client) handleMessage(msg *Message) {
 		c.handleEndPractice()
 	case "PICK_WINNERS":
 		c.handlePickWinners(msg.Data)
+	case "CAST_VOTE":
+		c.handleCastVote(msg.Data)
 	case "SKIP_ROUND":
 		c.handleSkipRound()
 	case "NEXT_QUESTION":
@@ -239,6 +241,9 @@ func (c *Client) handleCreateRoom(data any) {
 		"randomCategories":  room.RandomCategories,
 		"maxWinners":        room.MaxWinners,
 		"resultSeconds":     room.ResultSeconds,
+		"voteMode":          room.VoteMode,
+		"voteCandidates":    room.VoteCandidates,
+		"voteSeconds":       room.VoteSeconds,
 		"joinUrl":           c.hub.BuildJoinURL(room.ID),
 	})
 }
@@ -289,6 +294,9 @@ func (c *Client) handleJoinRoom(data any) {
 		"status":          room.Status,
 		"totalQuestions":  len(room.Questions),
 		"players":         room.PlayerList(),
+		"voteMode":        room.VoteMode,
+		"voteCandidates":  room.VoteCandidates,
+		"voteSeconds":     room.VoteSeconds,
 	})
 
 	c.hub.broadcastPlayerList(room.ID, "PLAYER_JOINED", map[string]any{
@@ -383,6 +391,7 @@ func (c *Client) handleRejoinRoom(data any) {
 	snapshot["playerName"] = player.Name
 	snapshot["avatar"] = player.Avatar
 	snapshot["hasSubmitted"] = room.HasSubmitted(player.ID)
+	snapshot["myVote"] = c.hub.gameService.MyVote(room, player.ID)
 	c.sendMessage("REJOIN_SUCCESS", snapshot)
 
 	c.hub.broadcastPlayerList(room.ID, "PLAYER_REJOINED", map[string]any{
@@ -428,9 +437,12 @@ func (c *Client) handleUpdateSettings(data any) {
 		QuestionIDs       []int    `json:"questionIds"`
 		CustomQuestions   []string `json:"customQuestions"`
 		// 沒帶就沿用房間現有的分類；帶空陣列代表改回全部分類
-		Categories    *[]string `json:"categories"`
-		MaxWinners    *int      `json:"maxWinners"`
-		ResultSeconds *int      `json:"resultSeconds"`
+		Categories     *[]string `json:"categories"`
+		MaxWinners     *int      `json:"maxWinners"`
+		ResultSeconds  *int      `json:"resultSeconds"`
+		VoteMode       *bool     `json:"voteMode"`
+		VoteCandidates *int      `json:"voteCandidates"`
+		VoteSeconds    *int      `json:"voteSeconds"`
 	}
 	if err := decode(data, &req); err != nil {
 		c.sendError("BAD_PAYLOAD", "設定參數格式錯誤")
@@ -460,6 +472,9 @@ func (c *Client) handleUpdateSettings(data any) {
 		RequireNickname: req.RequireNickname,
 		MaxWinners:      req.MaxWinners,
 		ResultSeconds:   req.ResultSeconds,
+		VoteMode:        req.VoteMode,
+		VoteCandidates:  req.VoteCandidates,
+		VoteSeconds:     req.VoteSeconds,
 		Categories:      req.Categories,
 		QuestionMode:    req.QuestionMode,
 		Difficulty:      req.Difficulty,
@@ -479,6 +494,9 @@ func (c *Client) handleUpdateSettings(data any) {
 		"randomCategories":  room.RandomCategories,
 		"maxWinners":        room.MaxWinners,
 		"resultSeconds":     room.ResultSeconds,
+		"voteMode":          room.VoteMode,
+		"voteCandidates":    room.VoteCandidates,
+		"voteSeconds":       room.VoteSeconds,
 	})
 }
 

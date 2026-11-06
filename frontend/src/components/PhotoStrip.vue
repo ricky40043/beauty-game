@@ -12,6 +12,8 @@ const props = withDefaults(
     showSlots?: boolean
     /** 標題旁的操作提示 */
     hint?: string
+    /** 投票模式：各照片主人的即時票數 */
+    voteCounts?: Record<string, number>
   }>(),
   { limit: 5, title: '', showSlots: true, hint: '點一下看大圖' },
 )
@@ -61,6 +63,13 @@ const dense = computed(() => props.limit > 10)
             :class="dense ? 'text-xs' : 'text-lg'"
           >
             {{ badge(index) }}
+          </span>
+          <span
+            v-if="voteCounts"
+            class="absolute right-1 top-1 rounded-lg bg-blush-500 px-1.5 font-black shadow"
+            :class="dense ? 'text-xs' : 'text-lg'"
+          >
+            🗳 {{ voteCounts[photo.playerId] ?? 0 }}
           </span>
           <span
             class="block truncate bg-black/70 px-1.5 py-0.5 font-medium text-white"

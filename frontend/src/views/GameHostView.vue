@@ -35,7 +35,22 @@ const {
   isPractice,
   maxWinners,
   resultSeconds,
+  voteMode,
+  voteCandidates,
+  voteSeconds,
+  voteCounts,
 } = storeToRefs(game)
+
+/** 這一題走投票模式（試玩不投） */
+const voting = computed(() => voteMode.value && !isPractice.value)
+
+/** 投票中依票數排好的候選，同票先交的在前 */
+const ranked = computed(() =>
+  [...roundPhotos.value].sort(
+    (a, b) => (voteCounts.value[b.playerId] ?? 0) - (voteCounts.value[a.playerId] ?? 0) || a.order - b.order,
+  ),
+)
+const totalVotes = computed(() => Object.values(voteCounts.value).reduce((n, v) => n + v, 0))
 
 const lightboxIndex = ref(-1)
 
@@ -216,6 +231,16 @@ const isLastQuestion = computed(
         @open="openLightbox"
       />
       <PhotoStrip
+        v-else-if="voting"
+        :photos="roundPhotos"
+        :total="roundPhotos.length"
+        :limit="voteCandidates"
+        :title="`投票候選：湊滿 ${voteCandidates} 張開始 ${voteSeconds} 秒投票倒數`"
+        hint="玩家拍照中也能先投 · 點照片立刻開始投票"
+        :vote-counts="voteCounts"
+        @open="socket.endShooting()"
+      />
+      <PhotoStrip
         v-else
         :photos="stripPhotos"
         :total="roundPhotos.length"
@@ -225,7 +250,7 @@ const isLastQuestion = computed(
       />
 
       <div class="flex items-center justify-between gap-4" :class="{ 'justify-end': isPractice }">
-        <label v-if="!isPractice" class="flex items-center gap-2 text-xs text-slate-500">
+        <label v-if="!isPractice && !voting" class="flex items-center gap-2 text-xs text-slate-500">
           顯示最快
           <select
             v-model.number="stripLimit"
@@ -243,6 +268,33 @@ const isLastQuestion = computed(
     </section>
 
     <!-- 評選中 -->
+    <!-- 投票倒數中 -->
+    <section v-else-if="status === 'voting'" class="mt-6 flex min-h-0 flex-1 flex-col gap-5">
+      <div class="flex items-end justify-between gap-6">
+        <div>
+          <h2 class="text-4xl font-black">🗳 投票中！</h2>
+          <p class="mt-1 text-lg text-slate-400">拿出手機投給最喜歡的一張（不能投自己），已經投了 {{ totalVotes }} 票</p>
+        </div>
+        <p class="text-7xl font-black tabular-nums" :class="timeLeft <= 3 ? 'text-rose-400' : 'text-blush-300'">
+          {{ timeLeft }}
+        </p>
+      </div>
+      <TransitionGroup tag="ul" name="vote-rank" class="grid min-h-0 flex-1 auto-rows-min grid-cols-3 gap-4 lg:grid-cols-5">
+        <li
+          v-for="(photo, i) in ranked"
+          :key="photo.playerId"
+          class="overflow-hidden rounded-2xl border-4 bg-slate-900"
+          :class="i === 0 && (voteCounts[photo.playerId] ?? 0) > 0 ? 'border-amber-300' : 'border-white/10'"
+        >
+          <img :src="photo.url" :alt="`${photo.playerName} 的投稿`" class="aspect-square w-full object-cover" />
+          <div class="flex items-center justify-between gap-2 px-3 py-2">
+            <span class="truncate font-semibold">{{ photo.playerAvatar }} {{ photo.playerName }}</span>
+            <span class="shrink-0 text-2xl font-black text-blush-300">{{ voteCounts[photo.playerId] ?? 0 }} 票</span>
+          </div>
+        </li>
+      </TransitionGroup>
+    </section>
+
     <section v-else-if="status === 'judging'" class="mt-6 min-h-0 flex-1">
       <JudgePanel
         :photos="roundPhotos"
@@ -280,7 +332,9 @@ const isLastQuestion = computed(
               {{ ['🥇', '🥈', '🥉'][winner.rank - 1] ?? `第 ${winner.rank} 名` }}
             </p>
             <p class="truncate font-bold">{{ winner.playerAvatar }} {{ winner.playerName }}</p>
-            <p class="text-sm font-semibold text-blush-600">+{{ winner.points }} 分</p>
+            <p class="text-sm font-semibold text-blush-600">
+              +{{ winner.points }} 分<span v-if="winner.votes"> · {{ winner.votes }} 票</span>
+            </p>
           </figcaption>
         </figure>
       </div>
@@ -385,6 +439,9 @@ const isLastQuestion = computed(
 .auto-next-bar {
   width: 0;
   animation: auto-next linear forwards;
+}
+.vote-rank-move {
+  transition: transform 0.4s ease;
 }
 @keyframes auto-next {
   to {
