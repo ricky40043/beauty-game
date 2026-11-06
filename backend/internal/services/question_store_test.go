@@ -207,8 +207,34 @@ func TestBuildRandomSurvivesEverythingDisabled(t *testing.T) {
 		_ = store.SetDisabled(q.ID, true)
 	}
 
-	got := svc.BuildRandom(models.ModeGroup, 3, "mixed")
+	got := svc.BuildRandom(models.ModeGroup, 3, "mixed", nil)
 	if len(got) == 0 {
 		t.Fatal("題目全被停用時仍應該回傳至少一題，否則房間開不起來")
+	}
+}
+
+// TestBuildRandomBalancesCategories 勾了分類時要平均分配，不能讓題多的分類搶光名額
+func TestBuildRandomBalancesCategories(t *testing.T) {
+	svc := services.NewQuestionService(nil)
+	cats := []string{models.CategoryStudent, models.CategoryWork, models.CategoryChurch}
+
+	for round := 0; round < 20; round++ {
+		got := svc.BuildRandom(models.ModeSolo, 10, "mixed", cats)
+		if len(got) != 10 {
+			t.Fatalf("應該抽 10 題，實際 %d", len(got))
+		}
+
+		counts := map[string]int{}
+		for _, q := range got {
+			counts[q.Category]++
+		}
+		for _, c := range cats {
+			if counts[c] < 3 || counts[c] > 4 {
+				t.Fatalf("三個分類應該是 4/3/3，實際 %v", counts)
+			}
+		}
+		if len(counts) != len(cats) {
+			t.Fatalf("不應該抽到沒勾的分類，實際 %v", counts)
+		}
 	}
 }

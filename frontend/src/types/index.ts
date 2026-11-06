@@ -105,9 +105,24 @@ export interface RoomSetup {
   difficulty: 'basic' | 'mixed'
   questionIds: number[]
   customQuestions: string[]
+  /** 隨機模式只從這些分類平均抽，空陣列代表全部 */
+  categories: string[]
   requireNickname: boolean
   practiceRound: boolean
 }
+
+/** 單人隨機抽題可以勾的分類（團體題只有一類，不用選） */
+export const SOLO_CATEGORIES = [
+  'expression',
+  'imitate',
+  'pose',
+  'color',
+  'object',
+  'advanced',
+  'student',
+  'work',
+  'church',
+]
 
 export const CATEGORY_LABELS: Record<string, string> = {
   expression: '表情',
@@ -116,6 +131,9 @@ export const CATEGORY_LABELS: Record<string, string> = {
   color: '找顏色',
   object: '找物品',
   advanced: '進階',
+  student: '學生篇',
+  work: '職場篇',
+  church: '教會聖誕',
   group: '團體',
   custom: '自訂',
 }

@@ -72,7 +72,7 @@ func (s *RoomService) CreateRoom(req models.CreateRoomRequest) (*models.Room, er
 		if total > 50 {
 			total = 50
 		}
-		questions = s.questions.BuildRandom(mode, total, req.Difficulty)
+		questions = s.questions.BuildRandom(mode, total, req.Difficulty, req.Categories)
 	}
 
 	hostName := names.Sanitize(req.HostName)
@@ -92,6 +92,7 @@ func (s *RoomService) CreateRoom(req models.CreateRoomRequest) (*models.Room, er
 		PracticeEnabled:   req.PracticeRound,
 		Players:           make(map[string]*models.Player),
 		Questions:         questions,
+		RandomCategories:  req.Categories,
 		CurrentQuestion:   -1,
 		QuestionTimeLimit: timeLimit,
 		History:           make([]models.RoundResult, 0),

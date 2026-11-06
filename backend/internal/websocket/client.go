@@ -439,7 +439,7 @@ func (c *Client) handleUpdateSettings(data any) {
 			return
 		}
 	case "random":
-		questions = c.hub.questionService().BuildRandom(room.Mode, req.TotalQuestions, req.Difficulty)
+		questions = c.hub.questionService().BuildRandom(room.Mode, req.TotalQuestions, req.Difficulty, room.RandomCategories)
 	}
 
 	if err := c.hub.roomService.UpdateSettings(room.ID, req.QuestionTimeLimit, req.RequireNickname, questions); err != nil {

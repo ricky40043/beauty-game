@@ -33,6 +33,9 @@ const (
 	CategoryColor      = "color"      // 找顏色
 	CategoryObject     = "object"     // 找物品
 	CategoryAdvanced   = "advanced"   // 進階複合
+	CategoryStudent    = "student"    // 學生篇
+	CategoryWork       = "work"       // 職場篇
+	CategoryChurch     = "church"     // 教會／聖誕篇
 	CategoryGroup      = "group"      // 團體合體照
 	CategoryCustom     = "custom"     // 房主自訂
 )
@@ -116,6 +119,9 @@ type Room struct {
 	Players   map[string]*Player `json:"players"`
 	Questions []Question         `json:"questions"`
 
+	// RandomCategories 建房時勾的抽題分類，大廳「重新隨機」要沿用，不然會洗回全部分類
+	RandomCategories []string `json:"randomCategories"`
+
 	CurrentQuestion   int `json:"currentQuestion"` // 0 起算；-1 表示尚未開始
 	QuestionTimeLimit int `json:"questionTimeLimit"`
 	TimeLeft          int `json:"timeLeft"`
@@ -154,6 +160,7 @@ type CreateRoomRequest struct {
 	QuestionMode      string   `json:"questionMode"`    // "random" | "custom"
 	QuestionIDs       []int    `json:"questionIds"`     // 自選模式：題庫題目，順序即遊玩順序
 	CustomQuestions   []string `json:"customQuestions"` // 自選模式：房主自己打的題目，接在後面
+	Categories        []string `json:"categories"`      // 隨機模式：只從這些分類平均抽；空的代表全部
 	RequireNickname   bool     `json:"requireNickname"`
 	PracticeRound     bool     `json:"practiceRound"`
 }
@@ -261,8 +268,13 @@ func (r *Room) Leaderboard() []ScoreInfo {
 		return scores[i].PlayerName < scores[j].PlayerName
 	})
 
+	// 同分同名次（1、1、3），同分的第一名要一起當冠軍
 	for i := range scores {
-		scores[i].Rank = i + 1
+		if i > 0 && scores[i].Score == scores[i-1].Score {
+			scores[i].Rank = scores[i-1].Rank
+		} else {
+			scores[i].Rank = i + 1
+		}
 	}
 	return scores
 }

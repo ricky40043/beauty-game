@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
+import ChampionReveal, { type Champion, type Highlight } from '@/components/ChampionReveal.vue'
 import PhotoLightbox from '@/components/PhotoLightbox.vue'
 import { useGameStore } from '@/stores/game'
 import { useSocketStore } from '@/stores/socket'
@@ -26,7 +27,42 @@ const confirmClose = () => {
 
 const lightboxIndex = ref(-1)
 
-const champion = computed(() => scores.value[0])
+/** 同分並列第一的都算冠軍 */
+const champions = computed<Champion[]>(() =>
+  scores.value
+    .filter((s) => s.rank === 1)
+    .map((s) => ({
+      playerId: s.playerId,
+      playerName: s.playerName,
+      avatar: s.avatar,
+      score: s.score,
+      photoUrl: bestPhotoOf(s.playerId),
+    })),
+)
+
+/** 冠軍的代表作：名次最高的那張，同名次取比較早的題目 */
+const bestPhotoOf = (id: string) => {
+  let best: { url: string; rank: number } | undefined
+  for (const round of history.value) {
+    for (const w of round.winners) {
+      if (w.playerId === id && (!best || w.rank < best.rank)) best = { url: w.url, rank: w.rank }
+    }
+  }
+  return best?.url
+}
+
+/** 動畫要快閃的照片：每題的第一名，幾題就幾張（沒人得獎的題目跳過） */
+const highlights = computed<Highlight[]>(() =>
+  history.value.flatMap((round) => {
+    const top = [...round.winners].sort((a, b) => a.rank - b.rank)[0]
+    return top
+      ? [{ url: top.url, playerName: top.playerName, playerAvatar: top.playerAvatar, questionText: round.questionText }]
+      : []
+  }),
+)
+
+// 冠軍動畫只在主畫面播；玩家手機直接看結果頁最上面的冠軍與照片
+const showReveal = ref(isHost.value && scores.value.length > 0)
 const me = computed(() => scores.value.find((s) => s.playerId === playerId.value))
 
 /** 把每題的得獎照片攤平成一面照片牆 */
@@ -54,7 +90,7 @@ const captionOf = (index: number) => {
 }
 
 onMounted(() => {
-  if (scores.value.length) celebrateFinale()
+  if (scores.value.length && !showReveal.value) celebrateFinale()
 })
 </script>
 
@@ -62,12 +98,28 @@ onMounted(() => {
   <main class="mx-auto min-h-screen max-w-5xl px-5 py-8">
     <header class="text-center">
       <div class="text-6xl">🏆</div>
-      <h1 class="mt-3 text-3xl font-black lg:text-4xl">今日最美出爐</h1>
-      <p v-if="champion" class="mt-3 text-xl">
-        <span class="text-2xl">{{ champion.avatar }}</span>
-        <span class="ml-2 font-black text-blush-300">{{ champion.playerName }}</span>
-        <span class="ml-2 text-slate-400">{{ champion.score }} 分</span>
-      </p>
+      <h1 class="mt-3 text-3xl font-black lg:text-4xl">
+        {{ champions.length > 1 ? '今日最美：並列冠軍' : '今日最美出爐' }}
+      </h1>
+      <div v-if="champions.length" class="mt-5 flex flex-wrap justify-center gap-5">
+        <div v-for="champ in champions" :key="champ.playerId" class="flex flex-col items-center">
+          <img
+            v-if="champ.photoUrl"
+            :src="champ.photoUrl"
+            :alt="champ.playerName"
+            class="aspect-square object-cover shadow-[0_0_40px_rgb(255_209_102/0.35)]"
+            :class="[
+              'rounded-2xl border-4 border-amber-300',
+              champions.length > 1 ? 'w-36 sm:w-44' : 'w-56 sm:w-64',
+            ]"
+          />
+          <p class="mt-3 text-xl">
+            <span class="text-2xl">{{ champ.avatar }}</span>
+            <span class="ml-2 font-black text-blush-300">{{ champ.playerName }}</span>
+            <span class="ml-2 text-slate-400">{{ champ.score }} 分</span>
+          </p>
+        </div>
+      </div>
     </header>
 
     <!-- 我的成績（玩家端） -->
@@ -173,5 +225,12 @@ onMounted(() => {
     />
 
     <p v-if="lightboxIndex >= 0" class="sr-only">{{ captionOf(lightboxIndex) }}</p>
+
+    <ChampionReveal
+      v-if="showReveal"
+      :highlights="highlights"
+      :champions="champions"
+      @done="showReveal = false"
+    />
   </main>
 </template>

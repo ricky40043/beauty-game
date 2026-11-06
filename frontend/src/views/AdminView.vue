@@ -14,7 +14,7 @@ import {
   type AdminQuestion,
 } from '@/services/api'
 import { useUIStore } from '@/stores/ui'
-import { CATEGORY_LABELS } from '@/types'
+import { CATEGORY_LABELS, SOLO_CATEGORIES } from '@/types'
 import type { GameMode } from '@/types'
 
 const router = useRouter()
@@ -79,7 +79,7 @@ const counts = computed(() => ({
 
 // ── 新增／編輯題目 ────────────────────────────────────────
 
-const CATEGORY_OPTIONS = ['expression', 'imitate', 'pose', 'color', 'object', 'advanced', 'group', 'custom']
+const CATEGORY_OPTIONS = [...SOLO_CATEGORIES, 'group', 'custom']
 
 const editorOpen = ref(false)
 const editingId = ref(0)

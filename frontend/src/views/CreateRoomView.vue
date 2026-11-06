@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import QuestionPicker from '@/components/QuestionPicker.vue'
 import { useSocketStore } from '@/stores/socket'
 import { useUIStore } from '@/stores/ui'
-import type { RoomSetup } from '@/types'
+import { CATEGORY_LABELS, SOLO_CATEGORIES, type RoomSetup } from '@/types'
 
 const router = useRouter()
 const socket = useSocketStore()
@@ -19,11 +19,18 @@ const setup = reactive<RoomSetup>({
   difficulty: 'mixed',
   questionIds: [],
   customQuestions: [],
+  categories: [],
   requireNickname: false,
   practiceRound: true,
 })
 
 const submitting = ref(false)
+
+const toggleCategory = (category: string) => {
+  const i = setup.categories.indexOf(category)
+  if (i >= 0) setup.categories.splice(i, 1)
+  else setup.categories.push(category)
+}
 
 const customCount = computed(() => setup.questionIds.length + setup.customQuestions.length)
 
@@ -129,6 +136,28 @@ const create = () => {
               class="mt-2 w-full accent-blush-500"
             />
           </label>
+
+          <div v-if="setup.mode === 'solo'">
+            <span class="text-sm text-slate-300">題目分類</span>
+            <span class="ml-2 text-xs text-slate-500">
+              {{ setup.categories.length ? '勾選的分類會平均出題' : '不勾就是全部分類一起抽' }}
+            </span>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <button
+                v-for="category in SOLO_CATEGORIES"
+                :key="category"
+                class="rounded-full px-3 py-1.5 text-xs font-medium transition"
+                :class="
+                  setup.categories.includes(category)
+                    ? 'bg-blush-500 text-white'
+                    : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                "
+                @click="toggleCategory(category)"
+              >
+                {{ CATEGORY_LABELS[category] }}
+              </button>
+            </div>
+          </div>
 
           <div class="flex gap-2">
             <button

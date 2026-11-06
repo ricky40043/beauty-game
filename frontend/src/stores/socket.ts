@@ -433,6 +433,7 @@ export const useSocketStore = defineStore('socket', () => {
       questionMode: setup.questionMode,
       questionIds: setup.questionIds,
       customQuestions: setup.customQuestions,
+      categories: setup.mode === 'solo' ? setup.categories : [],
       requireNickname: setup.requireNickname,
       practiceRound: setup.practiceRound,
     })

@@ -197,6 +197,9 @@ func normalizeCategory(category string, mode models.GameMode) string {
 		models.CategoryColor:      true,
 		models.CategoryObject:     true,
 		models.CategoryAdvanced:   true,
+		models.CategoryStudent:    true,
+		models.CategoryWork:       true,
+		models.CategoryChurch:     true,
 		models.CategoryGroup:      true,
 		models.CategoryCustom:     true,
 	}

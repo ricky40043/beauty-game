@@ -2,7 +2,7 @@ package services
 
 import "beauty-game/internal/models"
 
-// soloQuestions 單人題庫（50 題）。ID 1000 起算。
+// soloQuestions 單人題庫（81 題）。ID 1000 起算。
 // Difficulty：1 = 基礎（拍了就有）、2 = 進階（要找東西、要構圖）
 var soloQuestions = []models.Question{
 	// ── 表情 expression（10）────────────────────────────────
@@ -66,6 +66,43 @@ var soloQuestions = []models.Question{
 	{ID: 1506, Text: "在最暗的角落拍一張只靠手機螢幕打光的臉", Category: models.CategoryAdvanced, Difficulty: 2},
 	{ID: 1507, Text: "用一個物品製造錯位，讓它看起來被你捏在手上", Category: models.CategoryAdvanced, Difficulty: 2},
 	{ID: 1508, Text: "在有文字的背景前自拍，讓文字剛好在你頭上", Category: models.CategoryAdvanced, Difficulty: 2},
+
+	// ── 學生篇 student（11）──────────────────────────────
+	{ID: 1601, Text: "考卷發下來，看到「38 分」那一秒的表情", Category: models.CategoryStudent, Difficulty: 1},
+	{ID: 1602, Text: "成績單全部歐趴，忍不住偷笑的表情", Category: models.CategoryStudent, Difficulty: 1},
+	{ID: 1603, Text: "上課遲到，從後門躡手躡腳溜進教室的樣子", Category: models.CategoryStudent, Difficulty: 1},
+	{ID: 1604, Text: "上課打瞌睡被點名，瞬間驚醒的臉", Category: models.CategoryStudent, Difficulty: 1},
+	{ID: 1605, Text: "考前一晚才第一次翻開課本的絕望表情", Category: models.CategoryStudent, Difficulty: 1},
+	{ID: 1606, Text: "老師突然宣布「現在隨堂考」的表情", Category: models.CategoryStudent, Difficulty: 1},
+	{ID: 1607, Text: "被叫上台解題，但完全不會的表情", Category: models.CategoryStudent, Difficulty: 1},
+	{ID: 1608, Text: "下課前一分鐘，死盯著時鐘的臉", Category: models.CategoryStudent, Difficulty: 1},
+	{ID: 1609, Text: "分組報告，組員全部已讀不回的表情", Category: models.CategoryStudent, Difficulty: 1},
+	{ID: 1610, Text: "偷吃早餐被老師發現，嘴巴還塞滿的樣子", Category: models.CategoryStudent, Difficulty: 1},
+	{ID: 1611, Text: "半夜玩手遊被媽媽發現的表情", Category: models.CategoryStudent, Difficulty: 1},
+
+	// ── 職場篇 work（10）─────────────────────────────────
+	{ID: 1701, Text: "被老闆當眾罵的表情", Category: models.CategoryWork, Difficulty: 1},
+	{ID: 1702, Text: "明明是老闆的錯，最後卻怪到你頭上的表情", Category: models.CategoryWork, Difficulty: 1},
+	{ID: 1703, Text: "翹班出去買飲料，被主管當場抓到的表情", Category: models.CategoryWork, Difficulty: 1},
+	{ID: 1704, Text: "週一早上打卡前，靈魂出竅的臉", Category: models.CategoryWork, Difficulty: 1},
+	{ID: 1705, Text: "下班前五分鐘，老闆說「我們來開個會」", Category: models.CategoryWork, Difficulty: 1},
+	{ID: 1706, Text: "薪水入帳那一秒的表情", Category: models.CategoryWork, Difficulty: 1},
+	{ID: 1707, Text: "年終獎金只有預期一半的表情", Category: models.CategoryWork, Difficulty: 1},
+	{ID: 1708, Text: "開會放空，突然被點名發表意見的表情", Category: models.CategoryWork, Difficulty: 1},
+	{ID: 1709, Text: "同事說「幫我一下，只要五分鐘」的表情", Category: models.CategoryWork, Difficulty: 1},
+	{ID: 1710, Text: "收到「明天放颱風假」通知的表情", Category: models.CategoryWork, Difficulty: 1},
+
+	// ── 教會／聖誕篇 church（10）────────────────────────
+	{ID: 1801, Text: "打開手機訊息，發現新朋友放你鳥的表情", Category: models.CategoryChurch, Difficulty: 1},
+	{ID: 1802, Text: "站在門口接待，笑到臉都僵掉的招牌笑容", Category: models.CategoryChurch, Difficulty: 1},
+	{ID: 1803, Text: "聚會遲到推門進來，全場回頭看你的表情", Category: models.CategoryChurch, Difficulty: 1},
+	{ID: 1804, Text: "想吃最後一塊炸雞，卻看到新朋友也想吃時的反應", Category: models.CategoryChurch, Difficulty: 1},
+	{ID: 1805, Text: "交換禮物拆到很雷的東西，還要假裝很喜歡", Category: models.CategoryChurch, Difficulty: 1},
+	{ID: 1806, Text: "報佳音唱到第十家，喉嚨已經沙啞的表情", Category: models.CategoryChurch, Difficulty: 1},
+	{ID: 1807, Text: "收到通知「今年聖誕戲劇由你當主角」的表情", Category: models.CategoryChurch, Difficulty: 1},
+	{ID: 1808, Text: "聚會延長半小時，很想上廁所的表情", Category: models.CategoryChurch, Difficulty: 1},
+	{ID: 1809, Text: "尷尬而不失禮貌的微笑", Category: models.CategoryChurch, Difficulty: 1},
+	{ID: 1810, Text: "聚會偷溜，在門口剛好被牧師看到的表情", Category: models.CategoryChurch, Difficulty: 1},
 }
 
 // groupQuestions 團體題庫（25 題）。ID 2000 起算，全部都是合體照。
