@@ -10,8 +10,10 @@ const props = withDefaults(
     limit?: number
     title?: string
     showSlots?: boolean
+    /** 標題旁的操作提示 */
+    hint?: string
   }>(),
-  { limit: 5, title: '', showSlots: true },
+  { limit: 5, title: '', showSlots: true, hint: '點一下看大圖' },
 )
 
 defineEmits<{ (e: 'open', index: number): void }>()
@@ -33,7 +35,7 @@ const dense = computed(() => props.limit > 10)
   <section class="pointer-events-auto">
     <header class="mb-2 flex items-center gap-3 px-1">
       <h2 class="text-sm font-bold text-slate-300">{{ heading }}</h2>
-      <span class="text-xs text-slate-500">共 {{ total }} 張投稿 · 點一下看大圖</span>
+      <span class="text-xs text-slate-500">共 {{ total }} 張投稿 · {{ hint }}</span>
     </header>
 
     <!--

@@ -70,6 +70,20 @@ watch(
 )
 
 const openLightbox = (index: number) => (lightboxIndex.value = index)
+
+/** 收桌後評選畫面要先放大哪一張（房主在拍照中點的那張） */
+const judgeStartPhotoId = ref('')
+
+/**
+ * 拍照中點照片：直接收桌進評分，並在評選畫面把這張放大好讓房主馬上投票。
+ * 不另外放「提前結束拍照」鈕 —— 房主想評分時自然會去點照片。
+ */
+const startJudgingFrom = (index: number) => {
+  const photo = stripPhotos.value[index]
+  if (!photo) return
+  judgeStartPhotoId.value = photo.photoId
+  socket.endShooting()
+}
 const closeLightbox = () => (lightboxIndex.value = -1)
 
 const progress = computed(() => {
@@ -206,7 +220,8 @@ const isLastQuestion = computed(
         :photos="stripPhotos"
         :total="roundPhotos.length"
         :limit="stripLimit"
-        @open="openLightbox"
+        hint="點照片就開始評分"
+        @open="startJudgingFrom"
       />
 
       <div class="flex items-center justify-between gap-4" :class="{ 'justify-end': isPractice }">
@@ -224,9 +239,6 @@ const isLastQuestion = computed(
         <button v-if="isPractice" class="btn-primary px-8 py-3" @click="socket.endPractice()">
           結束試玩，開始第 1 題 →
         </button>
-        <button v-else class="btn-ghost px-6 py-3" @click="socket.endShooting()">
-          提前結束拍照
-        </button>
       </div>
     </section>
 
@@ -236,6 +248,7 @@ const isLastQuestion = computed(
         :photos="roundPhotos"
         :question-text="question?.text ?? ''"
         :max-winners="maxWinners"
+        :start-photo-id="judgeStartPhotoId"
         @confirm="socket.pickWinners($event)"
         @skip="socket.skipRound()"
       />
