@@ -256,9 +256,9 @@ const isLastQuestion = computed(
         :total="roundPhotos.length"
         :limit="voteCandidates"
         :title="`投票候選：湊滿 ${voteCandidates} 張開始 ${voteSeconds} 秒投票倒數`"
-        hint="玩家拍照中也能先投 · 點照片立刻開始投票"
+        hint="玩家拍照中也能先投 · 點照片看大圖"
         :vote-counts="voteCounts"
-        @open="socket.endShooting()"
+        @open="openLightbox"
       />
       <PhotoStrip
         v-else
@@ -284,9 +284,20 @@ const isLastQuestion = computed(
         <button v-if="isPractice" class="btn-primary px-8 py-3" @click="socket.endPractice()">
           結束試玩，開始第 1 題 →
         </button>
-        <button v-else class="btn-ghost px-6 py-3" @click="skipQuestion">
-          {{ isLastQuestion ? '跳過這一題，直接結算 →' : '跳過這一題 →' }}
-        </button>
+        <div v-else class="flex items-center gap-3">
+          <button class="btn-ghost px-6 py-3" @click="skipQuestion">
+            {{ isLastQuestion ? '跳過這一題，直接結算 →' : '跳過這一題 →' }}
+          </button>
+          <!-- 投票模式：點照片只是看大圖，要提早開始投票得按這顆（不必等湊滿候選張數） -->
+          <button
+            v-if="voting"
+            class="btn-primary px-8 py-3 text-lg"
+            :disabled="!submittedCount"
+            @click="socket.endShooting()"
+          >
+            開始投票 →
+          </button>
+        </div>
       </div>
     </section>
 
