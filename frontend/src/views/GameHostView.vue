@@ -106,18 +106,35 @@ const skipQuestion = () => {
   socket.skipRound()
 }
 
-/** 收桌後評選畫面要先放大哪一張（房主在拍照中點的那張） */
-const judgeStartPhotoId = ref('')
-
 /**
- * 拍照中點照片：直接收桌進評分，並在評選畫面把這張放大好讓房主馬上投票。
- * 不另外放「提前結束拍照」鈕 —— 房主想評分時自然會去點照片。
+ * 房主邊拍邊排名次：拍照中按「投給它」照順序給名次，倒數照跑、大家照樣上傳。
+ * 記照片主人而不是 photoId，對方重拍換照片時名次不會掉。
  */
-const startJudgingFrom = (index: number) => {
-  const photo = stripPhotos.value[index]
-  if (!photo) return
-  judgeStartPhotoId.value = photo.photoId
+const hostPicks = ref<string[]>([])
+watch(
+  () => question.value?.questionId,
+  () => (hostPicks.value = []),
+)
+const pickLimit = computed(() => (maxWinners.value > 0 ? maxWinners.value : Infinity))
+const pickRanks = computed(() =>
+  Object.fromEntries(hostPicks.value.map((id, i) => [id, i + 1])) as Record<string, number>,
+)
+const togglePick = (playerId: string) => {
+  const i = hostPicks.value.indexOf(playerId)
+  if (i >= 0) hostPicks.value.splice(i, 1)
+  else if (hostPicks.value.length < pickLimit.value) hostPicks.value.push(playerId)
+}
+/** 依名次排好的 photoId，給評選畫面與公布用 */
+const pickedPhotoIds = computed(() =>
+  hostPicks.value
+    .map((pid) => roundPhotos.value.find((p) => p.playerId === pid)?.photoId)
+    .filter((id): id is string => Boolean(id)),
+)
+/** 拍照中直接公布：收桌後馬上套用已投的名次（同一條連線依序處理，END_SHOOTING 一定先生效） */
+const announceNow = () => {
+  if (!pickedPhotoIds.value.length) return
   socket.endShooting()
+  socket.pickWinners(pickedPhotoIds.value)
 }
 const closeLightbox = () => (lightboxIndex.value = -1)
 
@@ -265,8 +282,11 @@ const isLastQuestion = computed(
         :photos="stripPhotos"
         :total="roundPhotos.length"
         :limit="stripLimit"
-        hint="點照片就開始評分"
-        @open="startJudgingFrom"
+        hint="點照片看大圖 · 按「投給它」排名次，倒數照跑"
+        :picks="pickRanks"
+        :picks-full="hostPicks.length >= pickLimit"
+        @open="openLightbox"
+        @pick="togglePick"
       />
 
       <div class="flex items-center justify-between gap-4" :class="{ 'justify-end': isPractice }">
@@ -287,6 +307,13 @@ const isLastQuestion = computed(
         <div v-else class="flex items-center gap-3">
           <button class="btn-ghost px-6 py-3" @click="skipQuestion">
             {{ isLastQuestion ? '跳過這一題，直接結算 →' : '跳過這一題 →' }}
+          </button>
+          <button
+            v-if="!voting && hostPicks.length"
+            class="btn-primary px-8 py-3 text-lg"
+            @click="announceNow"
+          >
+            公布結果（{{ hostPicks.length }} 位得獎）→
           </button>
           <!-- 投票模式：點照片只是看大圖，要提早開始投票得按這顆（不必等湊滿候選張數） -->
           <button
@@ -339,7 +366,7 @@ const isLastQuestion = computed(
         :photos="roundPhotos"
         :question-text="question?.text ?? ''"
         :max-winners="maxWinners"
-        :start-photo-id="judgeStartPhotoId"
+        :initial-picked="pickedPhotoIds"
         @confirm="socket.pickWinners($event)"
         @skip="socket.skipRound()"
       />
@@ -478,13 +505,32 @@ const isLastQuestion = computed(
       @update:index="lightboxIndex = $event"
       @close="closeLightbox"
     >
-      <!-- 這個燈箱只在試玩時出現（正式題點照片會直接進評分），講清楚為什麼沒有投票鈕 -->
-      <div v-if="isPractice" class="w-full max-w-md text-center">
+      <template #default="{ photo }">
+      <!-- 正式題（非投票模式）拍照中：放大看也能直接投，倒數照跑 -->
+      <div v-if="status === 'shooting' && !isPractice && !voting" class="w-full max-w-md">
+        <button
+          v-if="pickRanks[photo.playerId]"
+          class="btn-ghost w-full py-5 text-xl"
+          @click="togglePick(photo.playerId); closeLightbox()"
+        >
+          取消（目前第 {{ pickRanks[photo.playerId] }} 名）
+        </button>
+        <button
+          v-else
+          class="btn-primary w-full py-5 text-2xl"
+          :disabled="hostPicks.length >= pickLimit"
+          @click="togglePick(photo.playerId); closeLightbox()"
+        >
+          {{ hostPicks.length >= pickLimit ? '名額已滿' : `🗳 投給它（第 ${hostPicks.length + 1} 名）` }}
+        </button>
+      </div>
+      <div v-else-if="isPractice" class="w-full max-w-md text-center">
         <p class="text-sm text-amber-300">試玩回合不計分，大家可以一直上傳，這裡沒有投票</p>
         <button class="btn-primary mt-3 w-full py-4 text-xl" @click="closeLightbox(); socket.endPractice()">
           結束試玩，開始第 1 題 →
         </button>
       </div>
+      </template>
     </PhotoLightbox>
   </main>
 </template>

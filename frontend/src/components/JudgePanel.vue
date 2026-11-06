@@ -8,8 +8,8 @@ const props = defineProps<{
   questionText: string
   /** 0 = 不限，全部投稿都能排名 */
   maxWinners: number
-  /** 一進評選就先放大這張（房主在拍照中點的那張） */
-  startPhotoId?: string
+  /** 房主拍照中已經投好的名次（photoId 依名次排），進評選時直接帶入 */
+  initialPicked?: string[]
 }>()
 const emit = defineEmits<{
   (e: 'confirm', photoIds: string[]): void
@@ -18,10 +18,10 @@ const emit = defineEmits<{
 
 const limit = computed(() => (props.maxWinners > 0 ? props.maxWinners : props.photos.length))
 
-const picked = ref<string[]>([])
+const picked = ref<string[]>([...(props.initialPicked ?? [])])
 
 /** 放大中的那張；-1 = 沒有放大 */
-const previewIndex = ref(props.photos.findIndex((p) => p.photoId === props.startPhotoId))
+const previewIndex = ref(-1)
 
 // 換題目時把上一題的選擇清乾淨
 watch(

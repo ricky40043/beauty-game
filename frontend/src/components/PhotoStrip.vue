@@ -14,11 +14,15 @@ const props = withDefaults(
     hint?: string
     /** 投票模式：各照片主人的即時票數 */
     voteCounts?: Record<string, number>
+    /** 房主邊拍邊排名次：照片主人 playerId → 名次；有傳才顯示「投給它」鈕 */
+    picks?: Record<string, number>
+    /** 名次已經排滿，不能再投新的 */
+    picksFull?: boolean
   }>(),
   { limit: 5, title: '', showSlots: true, hint: '點一下看大圖' },
 )
 
-defineEmits<{ (e: 'open', index: number): void }>()
+defineEmits<{ (e: 'open', index: number): void; (e: 'pick', playerId: string): void }>()
 
 const heading = computed(() => props.title || `最快交卷的前 ${props.limit} 張`)
 
@@ -77,6 +81,25 @@ const dense = computed(() => props.limit > 10)
           >
             {{ photo.playerAvatar }} {{ photo.playerName }}
           </span>
+          <span
+            v-if="picks?.[photo.playerId]"
+            class="absolute right-1 top-1 grid min-w-[2rem] place-items-center rounded-lg bg-blush-500 px-1.5 font-black shadow"
+            :class="dense ? 'text-sm' : 'text-2xl'"
+          >
+            {{ picks[photo.playerId] }}
+          </span>
+        </button>
+        <button
+          v-if="picks"
+          class="mt-1 w-full rounded-lg py-1.5 font-bold transition"
+          :class="[
+            picks[photo.playerId] ? 'bg-blush-500 text-white' : 'bg-white/10 text-slate-200 hover:bg-white/20',
+            dense ? 'text-[10px]' : 'text-sm',
+          ]"
+          :disabled="!picks[photo.playerId] && picksFull"
+          @click="$emit('pick', photo.playerId)"
+        >
+          {{ picks[photo.playerId] ? `第 ${picks[photo.playerId]} 名 ✕` : picksFull ? '名額已滿' : '投給它' }}
         </button>
       </li>
 
