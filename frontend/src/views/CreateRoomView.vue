@@ -28,7 +28,7 @@ const setup = reactive<RoomSetup>({
   resultSeconds: 2,
   voteMode: false,
   voteCandidates: 5,
-  voteSeconds: 10,
+  voteSeconds: 30,
   requireNickname: false,
   practiceRound: true,
 })

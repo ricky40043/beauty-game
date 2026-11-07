@@ -20,9 +20,9 @@ const (
 	// DefaultVoteCandidates 投票模式預設候選張數
 	DefaultVoteCandidates = 5
 	// DefaultVoteSeconds 投票模式預設倒數秒數
-	DefaultVoteSeconds = 10
+	DefaultVoteSeconds = 30
 	// MaxVoteSeconds 投票倒數上限
-	MaxVoteSeconds = 25
+	MaxVoteSeconds = 60
 	// DefaultResultSeconds 公布得獎畫面預設停留秒數，時間到自動下一題
 	DefaultResultSeconds = 2
 	// PointsLowerRanks 第 6 名以後的得獎分：名額開到全部時，被點到的人還是要比沒被點到的多一點

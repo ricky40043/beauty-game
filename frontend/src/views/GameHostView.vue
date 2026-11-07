@@ -354,9 +354,12 @@ const isLastQuestion = computed(
           </div>
         </li>
       </TransitionGroup>
-      <div class="flex justify-end">
+      <div class="flex justify-end gap-3">
         <button class="btn-ghost px-6 py-3" @click="skipQuestion">
           {{ isLastQuestion ? '跳過這一題，直接結算 →' : '跳過這一題 →' }}
+        </button>
+        <button class="btn-primary px-8 py-3 text-lg" @click="socket.endVoting()">
+          結束投票 →
         </button>
       </div>
     </section>

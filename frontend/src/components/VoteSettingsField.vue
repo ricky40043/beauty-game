@@ -47,7 +47,7 @@ const seconds = defineModel<number>('seconds', { required: true })
           :value="seconds"
           type="range"
           min="5"
-          max="25"
+          max="60"
           class="mt-2 w-full accent-blush-500"
           @input="seconds = Number(($event.target as HTMLInputElement).value)"
         />

@@ -183,6 +183,8 @@ func (c *Client) handleMessage(msg *Message) {
 		c.handleSubmitPhoto(msg.Data)
 	case "END_SHOOTING":
 		c.handleEndShooting()
+	case "END_VOTING":
+		c.handleEndVoting()
 	case "END_PRACTICE":
 		c.handleEndPractice()
 	case "PICK_WINNERS":

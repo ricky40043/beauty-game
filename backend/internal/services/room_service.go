@@ -423,7 +423,7 @@ func clampVoteCandidates(n int) int {
 	return n
 }
 
-// clampVoteSeconds 投票倒數 5~25 秒
+// clampVoteSeconds 投票倒數 5~60 秒
 func clampVoteSeconds(n int) int {
 	if n < 5 {
 		return 5

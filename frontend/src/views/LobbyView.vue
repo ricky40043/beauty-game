@@ -135,7 +135,7 @@ const finishedLastGame = computed(() => status.value === 'finished')
 
 // 遊戲進行中時房主可能是從遊戲畫面按「回大廳」過來的，要留一條路回去
 const gameInProgress = computed(() =>
-  ['shooting', 'judging', 'round_result'].includes(status.value),
+  ['shooting', 'voting', 'judging', 'round_result'].includes(status.value),
 )
 
 const start = () => {

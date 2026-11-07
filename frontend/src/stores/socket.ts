@@ -582,6 +582,7 @@ export const useSocketStore = defineStore('socket', () => {
   const startGame = () => send('START_GAME')
   const submitPhoto = (photoId: string) => send('SUBMIT_PHOTO', { photoId })
   const endShooting = () => send('END_SHOOTING')
+  const endVoting = () => send('END_VOTING')
   const endPractice = () => send('END_PRACTICE')
   const pickWinners = (photoIds: string[]) => send('PICK_WINNERS', { photoIds })
   /** 投給某張照片的主人；傳空字串是收回 */
@@ -610,6 +611,7 @@ export const useSocketStore = defineStore('socket', () => {
     startGame,
     submitPhoto,
     endShooting,
+    endVoting,
     endPractice,
     pickWinners,
     castVote,

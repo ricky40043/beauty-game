@@ -49,7 +49,7 @@ export const useGameStore = defineStore('game', () => {
   /** 投票模式設定 */
   const voteMode = ref(false)
   const voteCandidates = ref(5)
-  const voteSeconds = ref(10)
+  const voteSeconds = ref(30)
   /** 本題各照片主人的票數（playerId → 票數） */
   const voteCounts = ref<Record<string, number>>({})
   /** 我這題投給誰（照片主人的 playerId） */

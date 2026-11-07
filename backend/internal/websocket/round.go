@@ -135,8 +135,28 @@ func (h *Hub) runVoteTimer(room *models.Room, seq int) {
 	}
 }
 
+// handleEndVoting 房主提前結束投票
+func (c *Client) handleEndVoting() {
+	room, ok := c.requireHostRoom()
+	if !ok {
+		return
+	}
+	if room.Status != models.RoomStatusVoting {
+		c.sendError("NOT_VOTING", "現在不是投票時間")
+		return
+	}
+	c.hub.finishVoting(room)
+}
+
 // finishVoting 依票數公布結果；沒人投票就當作這題沒有得獎者
 func (h *Hub) finishVoting(room *models.Room) {
+	h.gameService.Lock()
+	if room.Status != models.RoomStatusVoting {
+		h.gameService.Unlock()
+		return
+	}
+	h.gameService.Unlock()
+
 	result, scores, ok := h.gameService.ApplyVotes(room)
 	if !ok {
 		h.skipAndAdvance(room)

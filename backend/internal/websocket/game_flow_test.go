@@ -1279,7 +1279,7 @@ func TestVoteTieGoesToEarlierUpload(t *testing.T) {
 	host.send("CREATE_ROOM", map[string]any{
 		"hostName": "主持人", "mode": "solo", "questionMode": "random",
 		"totalQuestions": 1, "questionTimeLimit": 60,
-		"voteMode": true, "voteCandidates": 2, "voteSeconds": 5, "resultSeconds": 0,
+		"voteMode": true, "voteCandidates": 2, "voteSeconds": 60, "resultSeconds": 0,
 	})
 	roomID, _ := host.await("ROOM_CREATED")["roomId"].(string)
 
@@ -1298,7 +1298,10 @@ func TestVoteTieGoesToEarlierUpload(t *testing.T) {
 	first.send("SUBMIT_PHOTO", map[string]any{"photoId": srv.uploadPhoto(t, roomID)})
 	first.await("PHOTO_ACCEPTED")
 	second.send("SUBMIT_PHOTO", map[string]any{"photoId": srv.uploadPhoto(t, roomID)})
-	host.await("VOTING_STARTED")
+	started := host.await("VOTING_STARTED")
+	if started["timeLeft"] != float64(60) {
+		t.Fatalf("投票倒數應支援設到 60 秒，實際 %v", started["timeLeft"])
+	}
 
 	// 互投，各 1 票
 	first.send("CAST_VOTE", map[string]any{"targetPlayerId": secondID})
@@ -1306,7 +1309,9 @@ func TestVoteTieGoesToEarlierUpload(t *testing.T) {
 	second.send("CAST_VOTE", map[string]any{"targetPlayerId": firstID})
 	second.await("VOTE_ACCEPTED")
 
-	result := waitFor(t, host, "ROUND_RESULT", 9*time.Second)
+	// 主持人直接按結束投票，不用等 60 秒走完
+	host.send("END_VOTING", map[string]any{})
+	result := host.await("ROUND_RESULT")
 	winners, _ := result["winners"].([]any)
 	if len(winners) != 2 {
 		t.Fatalf("應該 2 位得獎，實際 %d", len(winners))
