@@ -131,7 +131,6 @@ export const SOLO_CATEGORIES = [
   'pose',
   'color',
   'object',
-  'advanced',
   'student',
   'work',
   'church',

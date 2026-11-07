@@ -2,7 +2,7 @@ package services
 
 import "beauty-game/internal/models"
 
-// soloQuestions 單人題庫（80 題）。ID 1000 起算。
+// soloQuestions 單人題庫（61 題）。ID 1000 起算。
 // Difficulty：1 = 基礎（拍了就有）、2 = 進階（要找東西、要構圖）
 var soloQuestions = []models.Question{
 	// ── 表情 expression（10）────────────────────────────────
@@ -17,17 +17,13 @@ var soloQuestions = []models.Question{
 	{ID: 1009, Text: "同時做到「挑一邊眉毛」+「嘟嘴」", Category: models.CategoryExpression, Difficulty: 2},
 	{ID: 1010, Text: "拍出你看到帳單那一秒的表情", Category: models.CategoryExpression, Difficulty: 1},
 
-	// ── 模仿 imitate（8）────────────────────────────────────
-	{ID: 1101, Text: "模仿一隻睡到翻肚的貓", Category: models.CategoryImitate, Difficulty: 1},
-	{ID: 1102, Text: "模仿你老闆或老師講話的樣子", Category: models.CategoryImitate, Difficulty: 1},
+	// ── 模仿 imitate（4）────────────────────────────────────
 	{ID: 1103, Text: "模仿一座希臘雕像，要有肌肉線條", Category: models.CategoryImitate, Difficulty: 1},
-	{ID: 1104, Text: "模仿網紅拍洗髮精廣告甩頭", Category: models.CategoryImitate, Difficulty: 1},
 	{ID: 1105, Text: "模仿中樂透卻裝鎮定的人", Category: models.CategoryImitate, Difficulty: 1},
 	{ID: 1106, Text: "模仿超浮誇 YouTuber 的震驚封面臉", Category: models.CategoryImitate, Difficulty: 1},
-	{ID: 1107, Text: "模仿一隻正在偷東西的浣熊", Category: models.CategoryImitate, Difficulty: 2},
 	{ID: 1108, Text: "模仿手機只剩 1% 電的人", Category: models.CategoryImitate, Difficulty: 2},
 
-	// ── 自拍姿勢 pose（8）──────────────────────────────────
+	// ── 自拍姿勢 pose（7）──────────────────────────────────
 	{ID: 1201, Text: "45 度角網美自拍，要有下巴線條", Category: models.CategoryPose, Difficulty: 1},
 	{ID: 1202, Text: "比出愛心，而且全程不能笑", Category: models.CategoryPose, Difficulty: 1},
 	{ID: 1203, Text: "單手托腮的憂鬱文青風自拍", Category: models.CategoryPose, Difficulty: 1},
@@ -35,37 +31,20 @@ var soloQuestions = []models.Question{
 	{ID: 1205, Text: "用手指框住自己的臉當相框", Category: models.CategoryPose, Difficulty: 1},
 	{ID: 1206, Text: "拍一張從下往上的超級醜角度", Category: models.CategoryPose, Difficulty: 1},
 	{ID: 1207, Text: "拍一張假裝被偷拍的明星街拍照", Category: models.CategoryPose, Difficulty: 2},
-	{ID: 1208, Text: "用「手在畫面前、臉在後面」拍出景深", Category: models.CategoryPose, Difficulty: 2},
 
-	// ── 找顏色 color（8）──────────────────────────────────
+	// ── 找顏色 color（5）──────────────────────────────────
 	{ID: 1301, Text: "把一個「紅色」的東西貼在臉上自拍", Category: models.CategoryColor, Difficulty: 1},
 	{ID: 1302, Text: "找到一個「藍色」的東西頂在頭上", Category: models.CategoryColor, Difficulty: 1},
 	{ID: 1303, Text: "找到一個「黃色」的東西遮住半張臉", Category: models.CategoryColor, Difficulty: 1},
 	{ID: 1304, Text: "找到一個「綠色」的東西當項鍊掛著", Category: models.CategoryColor, Difficulty: 1},
 	{ID: 1305, Text: "跟身邊顏色最鮮豔的東西深情對望", Category: models.CategoryColor, Difficulty: 2},
-	{ID: 1306, Text: "把兩個不同顏色的東西夾在臉兩側", Category: models.CategoryColor, Difficulty: 2},
-	{ID: 1307, Text: "找到跟你今天衣服同色的東西合照", Category: models.CategoryColor, Difficulty: 2},
-	{ID: 1308, Text: "拍一張畫面裡有彩虹四種以上顏色的照片", Category: models.CategoryColor, Difficulty: 2},
 
-	// ── 找物品 object（8）──────────────────────────────────
+	// ── 找物品 object（5）──────────────────────────────────
 	{ID: 1401, Text: "找一個圓形的東西戴在頭上", Category: models.CategoryObject, Difficulty: 1},
 	{ID: 1402, Text: "找一支筆當麥克風，擺出唱歌的樣子", Category: models.CategoryObject, Difficulty: 1},
 	{ID: 1403, Text: "隨便拿個東西當紅酒杯搖晃耍帥", Category: models.CategoryObject, Difficulty: 1},
-	{ID: 1404, Text: "找一條線狀的東西當鬍子", Category: models.CategoryObject, Difficulty: 1},
 	{ID: 1405, Text: "隨便拿一樣東西當武器，擺出殺氣臉", Category: models.CategoryObject, Difficulty: 1},
 	{ID: 1406, Text: "找一個東西擋住臉，只露出一隻眼睛", Category: models.CategoryObject, Difficulty: 1},
-	{ID: 1407, Text: "找兩個東西組成一張笑臉", Category: models.CategoryObject, Difficulty: 2},
-	{ID: 1408, Text: "找一個透明的東西，透過它拍自己", Category: models.CategoryObject, Difficulty: 2},
-
-	// ── 進階複合 advanced（8）──────────────────────────────
-	{ID: 1501, Text: "把一個小東西拿在鏡頭最前面，讓它看起來比你的頭還大", Category: models.CategoryAdvanced, Difficulty: 2},
-	{ID: 1502, Text: "用身邊的東西在頭頂借位，幫自己長出「兩隻角」", Category: models.CategoryAdvanced, Difficulty: 2},
-	{ID: 1503, Text: "在鏡子或任何反射面前拍一張倒影自拍", Category: models.CategoryAdvanced, Difficulty: 2},
-	{ID: 1504, Text: "找一個門框或窗框，把自己框在裡面", Category: models.CategoryAdvanced, Difficulty: 2},
-	{ID: 1505, Text: "拍一張有影子入鏡、而且影子是主角的照片", Category: models.CategoryAdvanced, Difficulty: 2},
-	{ID: 1506, Text: "在最暗的角落拍一張只靠手機螢幕打光的臉", Category: models.CategoryAdvanced, Difficulty: 2},
-	{ID: 1507, Text: "用一個物品製造錯位，讓它看起來被你捏在手上", Category: models.CategoryAdvanced, Difficulty: 2},
-	{ID: 1508, Text: "在有文字的背景前自拍，讓文字剛好在你頭上", Category: models.CategoryAdvanced, Difficulty: 2},
 
 	// ── 學生篇 student（11）──────────────────────────────
 	{ID: 1601, Text: "考卷發下來，看到「38 分」那一秒的表情", Category: models.CategoryStudent, Difficulty: 1},
