@@ -111,6 +111,8 @@ func (s *RoomService) CreateRoom(req models.CreateRoomRequest) (*models.Room, er
 		Status:            models.RoomStatusWaiting,
 		RequireNickname:   req.RequireNickname,
 		PracticeEnabled:   req.PracticeRound,
+		PracticeText:      cleanPracticeText(req.PracticeText),
+		IntroEnabled:      req.GameIntro,
 		Players:           make(map[string]*models.Player),
 		Questions:         questions,
 		RandomCategories:  req.Categories,
@@ -314,6 +316,15 @@ func (s *RoomService) UpdateSettings(roomID string, patch SettingsPatch, questio
 	if patch.RequireNickname != nil {
 		room.RequireNickname = *patch.RequireNickname
 	}
+	if patch.Practice != nil {
+		room.PracticeEnabled = *patch.Practice
+	}
+	if patch.PracticeText != nil {
+		room.PracticeText = cleanPracticeText(*patch.PracticeText)
+	}
+	if patch.Intro != nil {
+		room.IntroEnabled = *patch.Intro
+	}
 	if patch.MaxWinners != nil {
 		room.MaxWinners = clampMaxWinners(*patch.MaxWinners)
 	}
@@ -350,6 +361,9 @@ func (s *RoomService) UpdateSettings(roomID string, patch SettingsPatch, questio
 type SettingsPatch struct {
 	TimeLimit       int
 	RequireNickname *bool
+	Practice        *bool
+	PracticeText    *string
+	Intro           *bool
 	MaxWinners      *int
 	ResultSeconds   *int
 	VoteMode        *bool
@@ -413,6 +427,15 @@ func (s *RoomService) playedCopyLocked(room *models.Room) map[int]bool {
 }
 
 // clampVoteCandidates 候選張數 2~20：只有 1 張就沒得選了
+// cleanPracticeText 試玩題跟自訂題目一樣最多 60 字
+func cleanPracticeText(raw string) string {
+	cleaned := strings.TrimSpace(raw)
+	if runes := []rune(cleaned); len(runes) > 60 {
+		cleaned = string(runes[:60])
+	}
+	return cleaned
+}
+
 func clampVoteCandidates(n int) int {
 	if n < 2 {
 		return 2

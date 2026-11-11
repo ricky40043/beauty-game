@@ -187,6 +187,8 @@ func (c *Client) handleMessage(msg *Message) {
 		c.handleEndVoting()
 	case "END_PRACTICE":
 		c.handleEndPractice()
+	case "GAME_INTRO":
+		c.handleGameIntro(msg.Data)
 	case "PICK_WINNERS":
 		c.handlePickWinners(msg.Data)
 	case "CAST_VOTE":
@@ -237,6 +239,8 @@ func (c *Client) handleCreateRoom(data any) {
 		"requireNickname":   room.RequireNickname,
 		"practiceEnabled":   room.PracticeEnabled,
 		"inPractice":        room.InPractice,
+		"practiceText":      room.PracticeQuestionData().Text,
+		"introEnabled":      room.IntroEnabled,
 		"totalQuestions":    len(room.Questions),
 		"questionTimeLimit": room.QuestionTimeLimit,
 		"questions":         room.Questions,
@@ -440,6 +444,9 @@ func (c *Client) handleUpdateSettings(data any) {
 		CustomQuestions   []string `json:"customQuestions"`
 		// 沒帶就沿用房間現有的分類；帶空陣列代表改回全部分類
 		Categories     *[]string `json:"categories"`
+		PracticeRound  *bool     `json:"practiceRound"`
+		PracticeText   *string   `json:"practiceText"`
+		GameIntro      *bool     `json:"gameIntro"`
 		MaxWinners     *int      `json:"maxWinners"`
 		ResultSeconds  *int      `json:"resultSeconds"`
 		VoteMode       *bool     `json:"voteMode"`
@@ -472,6 +479,9 @@ func (c *Client) handleUpdateSettings(data any) {
 	if err := c.hub.roomService.UpdateSettings(room.ID, services.SettingsPatch{
 		TimeLimit:       req.QuestionTimeLimit,
 		RequireNickname: req.RequireNickname,
+		Practice:        req.PracticeRound,
+		PracticeText:    req.PracticeText,
+		Intro:           req.GameIntro,
 		MaxWinners:      req.MaxWinners,
 		ResultSeconds:   req.ResultSeconds,
 		VoteMode:        req.VoteMode,
@@ -491,6 +501,8 @@ func (c *Client) handleUpdateSettings(data any) {
 		"requireNickname":   room.RequireNickname,
 		"practiceEnabled":   room.PracticeEnabled,
 		"inPractice":        room.InPractice,
+		"practiceText":      room.PracticeQuestionData().Text,
+		"introEnabled":      room.IntroEnabled,
 		"totalQuestions":    len(room.Questions),
 		"questions":         room.Questions,
 		"randomCategories":  room.RandomCategories,

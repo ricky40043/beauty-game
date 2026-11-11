@@ -5,6 +5,7 @@ import QuestionPicker from '@/components/QuestionPicker.vue'
 import { useSocketStore } from '@/stores/socket'
 import { useUIStore } from '@/stores/ui'
 import MaxWinnersField from '@/components/MaxWinnersField.vue'
+import OpeningSettings from '@/components/OpeningSettings.vue'
 import RandomSettings from '@/components/RandomSettings.vue'
 import ResultSecondsField from '@/components/ResultSecondsField.vue'
 import VoteSettingsField from '@/components/VoteSettingsField.vue'
@@ -31,6 +32,8 @@ const setup = reactive<RoomSetup>({
   voteSeconds: 30,
   requireNickname: false,
   practiceRound: true,
+  practiceText: '',
+  gameIntro: true,
 })
 
 const submitting = ref(false)
@@ -180,27 +183,12 @@ const create = () => {
           <input v-model="setup.hostName" class="field mt-2 py-2 text-sm" maxlength="16" />
         </label>
 
-        <button
-          class="flex w-full items-center justify-between gap-4 rounded-2xl bg-slate-900/60 px-4 py-3 text-left"
-          @click="setup.practiceRound = !setup.practiceRound"
-        >
-          <span>
-            <span class="text-sm font-semibold">開場先試玩一輪</span>
-            <span class="mt-0.5 block text-xs leading-relaxed text-slate-400">
-              正式開始前先來一題不計分的暖身，大家都可以上傳、照片全部顯示，
-              確認相機沒問題再由你按下開始
-            </span>
-          </span>
-          <span
-            class="relative h-6 w-11 shrink-0 rounded-full transition"
-            :class="setup.practiceRound ? 'bg-blush-500' : 'bg-white/15'"
-          >
-            <span
-              class="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all"
-              :class="setup.practiceRound ? 'left-[22px]' : 'left-0.5'"
-            />
-          </span>
-        </button>
+        <OpeningSettings
+          v-model:intro="setup.gameIntro"
+          v-model:practice="setup.practiceRound"
+          v-model:practice-text="setup.practiceText"
+          :mode="setup.mode"
+        />
 
         <button
           class="flex w-full items-center justify-between gap-4 rounded-2xl bg-slate-900/60 px-4 py-3 text-left"

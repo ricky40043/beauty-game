@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import type {
   CurrentQuestion,
   GameMode,
+  IntroState,
   PhotoSubmission,
   Player,
   Question,
@@ -20,6 +21,12 @@ export const useGameStore = defineStore('game', () => {
   const requireNickname = ref(false)
   const practiceEnabled = ref(false)
   const isPractice = ref(false)
+  /** 試玩題目（伺服器已經把預設題補上） */
+  const practiceText = ref('')
+  /** 開始遊戲前先播玩法說明 */
+  const introEnabled = ref(false)
+  /** 玩家手機用：主畫面正在播說明時的頁次，沒在播是 null */
+  const intro = ref<IntroState | null>(null)
   const totalQuestions = ref(0)
   const questionTimeLimit = ref(60)
   const joinUrl = ref('')
@@ -84,6 +91,8 @@ export const useGameStore = defineStore('game', () => {
     if (payload.requireNickname !== undefined) requireNickname.value = payload.requireNickname
     if (payload.practiceEnabled !== undefined) practiceEnabled.value = payload.practiceEnabled
     if (payload.inPractice !== undefined) isPractice.value = payload.inPractice
+    if (typeof payload.practiceText === 'string') practiceText.value = payload.practiceText
+    if (typeof payload.introEnabled === 'boolean') introEnabled.value = payload.introEnabled
     if (payload.totalQuestions !== undefined) totalQuestions.value = payload.totalQuestions
     if (payload.questionTimeLimit !== undefined) questionTimeLimit.value = payload.questionTimeLimit
     if (payload.joinUrl) joinUrl.value = payload.joinUrl
@@ -120,6 +129,7 @@ export const useGameStore = defineStore('game', () => {
   /** 新的一題：清掉上一題的照片與結果 */
   const startQuestion = (payload: CurrentQuestion & { isPractice?: boolean }) => {
     isPractice.value = Boolean(payload.isPractice)
+    intro.value = null
     question.value = payload
     timeLeft.value = payload.timeLimit
     totalQuestions.value = payload.totalQuestions
@@ -176,6 +186,7 @@ export const useGameStore = defineStore('game', () => {
 
   const resetToLobby = () => {
     status.value = 'waiting'
+    intro.value = null
     question.value = null
     timeLeft.value = 0
     roundPhotos.value = []
@@ -193,6 +204,8 @@ export const useGameStore = defineStore('game', () => {
     requireNickname.value = false
     practiceEnabled.value = false
     isPractice.value = false
+    practiceText.value = ''
+    introEnabled.value = false
     totalQuestions.value = 0
     joinUrl.value = ''
     questions.value = []
@@ -213,6 +226,9 @@ export const useGameStore = defineStore('game', () => {
     requireNickname,
     practiceEnabled,
     isPractice,
+    practiceText,
+    introEnabled,
+    intro,
     totalQuestions,
     questionTimeLimit,
     joinUrl,

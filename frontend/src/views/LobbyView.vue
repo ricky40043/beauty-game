@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
+import GameIntro from '@/components/GameIntro.vue'
 import MaxWinnersField from '@/components/MaxWinnersField.vue'
+import OpeningSettings from '@/components/OpeningSettings.vue'
 import QRCodeDisplay from '@/components/QRCodeDisplay.vue'
 import QuestionPicker from '@/components/QuestionPicker.vue'
 import RandomSettings from '@/components/RandomSettings.vue'
@@ -33,6 +35,10 @@ const {
   voteMode,
   voteCandidates,
   voteSeconds,
+  practiceEnabled,
+  practiceText,
+  introEnabled,
+  intro,
 } = storeToRefs(game)
 
 const editingQuestions = ref(false)
@@ -44,6 +50,33 @@ const draftResultSeconds = ref(resultSeconds.value)
 const draftVoteMode = ref(voteMode.value)
 const draftVoteCandidates = ref(voteCandidates.value)
 const draftVoteSeconds = ref(voteSeconds.value)
+const draftIntro = ref(introEnabled.value)
+const draftPractice = ref(practiceEnabled.value)
+const draftPracticeText = ref(practiceText.value)
+
+/** 兩個設定彈窗共用的那些欄位：打開時從房間帶入、儲存時一起送出 */
+const loadSharedDrafts = () => {
+  draftTimeLimit.value = questionTimeLimit.value
+  draftMaxWinners.value = maxWinners.value
+  draftResultSeconds.value = resultSeconds.value
+  draftVoteMode.value = voteMode.value
+  draftVoteCandidates.value = voteCandidates.value
+  draftVoteSeconds.value = voteSeconds.value
+  draftIntro.value = introEnabled.value
+  draftPractice.value = practiceEnabled.value
+  draftPracticeText.value = practiceText.value
+}
+const sharedDrafts = () => ({
+  questionTimeLimit: draftTimeLimit.value,
+  maxWinners: draftMaxWinners.value,
+  resultSeconds: draftResultSeconds.value,
+  voteMode: draftVoteMode.value,
+  voteCandidates: draftVoteCandidates.value,
+  voteSeconds: draftVoteSeconds.value,
+  gameIntro: draftIntro.value,
+  practiceRound: draftPractice.value,
+  practiceText: draftPracticeText.value,
+})
 
 // 隨機出題設定：再來一局時可以重新調題數、分類、難度
 const editingRandom = ref(false)
@@ -68,12 +101,7 @@ const copyLink = async () => {
 const openEditor = () => {
   draftQuestionIds.value = game.questions.filter((q) => !q.isCustom).map((q) => q.id)
   draftCustomQuestions.value = game.questions.filter((q) => q.isCustom).map((q) => q.text)
-  draftTimeLimit.value = questionTimeLimit.value
-  draftMaxWinners.value = maxWinners.value
-  draftResultSeconds.value = resultSeconds.value
-  draftVoteMode.value = voteMode.value
-  draftVoteCandidates.value = voteCandidates.value
-  draftVoteSeconds.value = voteSeconds.value
+  loadSharedDrafts()
   editingQuestions.value = true
 }
 
@@ -86,12 +114,7 @@ const saveQuestions = () => {
     questionMode: 'custom',
     questionIds: draftQuestionIds.value,
     customQuestions: draftCustomQuestions.value,
-    questionTimeLimit: draftTimeLimit.value,
-    maxWinners: draftMaxWinners.value,
-    resultSeconds: draftResultSeconds.value,
-    voteMode: draftVoteMode.value,
-    voteCandidates: draftVoteCandidates.value,
-    voteSeconds: draftVoteSeconds.value,
+    ...sharedDrafts(),
   })
   editingQuestions.value = false
 }
@@ -99,12 +122,7 @@ const saveQuestions = () => {
 const openRandom = () => {
   draftTotal.value = totalQuestions.value || 10
   draftCategories.value = [...randomCategories.value]
-  draftTimeLimit.value = questionTimeLimit.value
-  draftMaxWinners.value = maxWinners.value
-  draftResultSeconds.value = resultSeconds.value
-  draftVoteMode.value = voteMode.value
-  draftVoteCandidates.value = voteCandidates.value
-  draftVoteSeconds.value = voteSeconds.value
+  loadSharedDrafts()
   editingRandom.value = true
 }
 
@@ -114,12 +132,7 @@ const saveRandom = () => {
     totalQuestions: draftTotal.value,
     categories: mode.value === 'solo' ? draftCategories.value : [],
     difficulty: draftDifficulty.value,
-    questionTimeLimit: draftTimeLimit.value,
-    maxWinners: draftMaxWinners.value,
-    resultSeconds: draftResultSeconds.value,
-    voteMode: draftVoteMode.value,
-    voteCandidates: draftVoteCandidates.value,
-    voteSeconds: draftVoteSeconds.value,
+    ...sharedDrafts(),
   })
   editingRandom.value = false
 }
@@ -128,6 +141,14 @@ const winnersLabel = computed(() => {
   const winners = maxWinners.value > 0 ? `得獎前 ${maxWinners.value} 名` : '全部排名'
   return voteMode.value ? `🗳 投票模式（前 ${voteCandidates.value} 張、${voteSeconds.value} 秒）· ${winners}` : winners
 })
+
+const openingLabel = computed(() => {
+  const parts = [introEnabled.value ? '先播玩法說明' : '', practiceEnabled.value ? `試玩「${practiceText.value}」` : '']
+  return parts.filter(Boolean).join(' · ')
+})
+
+/** 玩法說明播放中（只在這台主畫面上，房間狀態還是大廳） */
+const showIntro = ref(false)
 
 // 上一場結束後房間狀態是 finished，這時候送 START_GAME 會被後端擋下來，
 // 必須先重置回大廳，所以按鈕在這種情況下改成「開新的一局」。
@@ -147,6 +168,16 @@ const start = () => {
     ui.showError('等至少一位玩家加入再開始')
     return
   }
+  if (introEnabled.value) {
+    showIntro.value = true
+    return
+  }
+  socket.startGame()
+}
+
+/** 說明播完或被跳過：真的開始遊戲 */
+const startAfterIntro = () => {
+  showIntro.value = false
   socket.startGame()
 }
 
@@ -239,7 +270,10 @@ const confirmRename = () => {
         <section
           class="flex flex-none flex-wrap items-center justify-center gap-2 text-sm text-slate-400 lg:justify-start"
         >
-          <span>共 {{ totalQuestions }} 題 · 每題 {{ questionTimeLimit }} 秒 · {{ winnersLabel }}</span>
+          <span>
+            共 {{ totalQuestions }} 題 · 每題 {{ questionTimeLimit }} 秒 · {{ winnersLabel }}
+            <template v-if="openingLabel"> · {{ openingLabel }}</template>
+          </span>
           <button class="btn-ghost px-3 py-1.5 text-xs" :disabled="gameInProgress" @click="openRandom">
             隨機出題設定
           </button>
@@ -261,10 +295,12 @@ const confirmRename = () => {
           :disabled="!players.length && !finishedLastGame"
           @click="start"
         >
-          {{ finishedLastGame ? '開新的一局' : '開始遊戲' }}
+          {{ finishedLastGame ? '開新的一局' : introEnabled ? '開始遊戲（先播玩法說明）' : '開始遊戲' }}
         </button>
       </div>
     </div>
+
+    <GameIntro v-if="showIntro" @start="startAfterIntro" @close="showIntro = false" />
 
     <!-- 隨機出題設定 -->
     <div
@@ -305,6 +341,12 @@ const confirmRename = () => {
             v-model:candidates="draftVoteCandidates"
             v-model:seconds="draftVoteSeconds"
           />
+          <OpeningSettings
+            v-model:intro="draftIntro"
+            v-model:practice="draftPractice"
+            v-model:practice-text="draftPracticeText"
+            :mode="mode"
+          />
         </section>
 
         <button class="btn-primary w-full py-4" @click="saveRandom">重新抽題並儲存</button>
@@ -337,13 +379,19 @@ const confirmRename = () => {
           />
         </label>
 
-        <section class="card">
+        <section class="card space-y-4">
           <MaxWinnersField v-model="draftMaxWinners" />
           <ResultSecondsField v-model="draftResultSeconds" />
           <VoteSettingsField
             v-model:enabled="draftVoteMode"
             v-model:candidates="draftVoteCandidates"
             v-model:seconds="draftVoteSeconds"
+          />
+          <OpeningSettings
+            v-model:intro="draftIntro"
+            v-model:practice="draftPractice"
+            v-model:practice-text="draftPracticeText"
+            :mode="mode"
           />
         </section>
 
@@ -409,5 +457,30 @@ const confirmRename = () => {
     <button class="btn-ghost mt-auto w-full py-3 text-sm" @click="socket.leaveRoom()">
       離開房間
     </button>
+
+    <!-- 主畫面正在播玩法說明：請大家抬頭看大螢幕 -->
+    <div
+      v-if="intro"
+      class="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-slate-950/95 px-6 text-center backdrop-blur"
+      data-testid="intro-follow"
+    >
+      <div class="animate-bounce text-7xl">📺</div>
+      <h2 class="text-3xl font-black">請看大螢幕</h2>
+      <p class="text-slate-400">主持人正在說明玩法</p>
+      <p v-if="intro.title" class="rounded-2xl bg-white/5 px-5 py-3 text-xl font-bold text-blush-200">
+        {{ intro.title }}
+      </p>
+      <div class="flex gap-1.5">
+        <span
+          v-for="n in intro.total"
+          :key="n"
+          class="h-1.5 w-6 rounded-full"
+          :class="n - 1 <= intro.page ? 'bg-blush-400' : 'bg-white/15'"
+        />
+      </div>
+      <button class="mt-4 text-xs text-slate-500 underline underline-offset-2" @click="intro = null">
+        先回等待畫面
+      </button>
+    </div>
   </main>
 </template>

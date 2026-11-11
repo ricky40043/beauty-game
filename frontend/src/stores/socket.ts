@@ -289,7 +289,17 @@ export const useSocketStore = defineStore('socket', () => {
         handleRejoinSuccess(data)
         break
 
+      case 'GAME_INTRO':
+        // 說明是播在主畫面上的，手機只顯示「請看大螢幕」
+        if (!game.isHost) {
+          game.intro = data.active
+            ? { page: data.page ?? 0, total: data.total ?? 1, title: data.title ?? '' }
+            : null
+        }
+        break
+
       case 'GAME_STARTED':
+        game.intro = null
         game.setRoom(data)
         goToGameView(data.roomId)
         break
@@ -379,13 +389,19 @@ export const useSocketStore = defineStore('socket', () => {
       case 'ROOM_RESET_TO_LOBBY':
         game.resetToLobby()
         // 隨機出題的房間伺服器會換一批題目，題數與題目清單要跟著更新
-        game.setRoom({ totalQuestions: data.totalQuestions, questions: data.questions })
+        game.setRoom({
+          totalQuestions: data.totalQuestions,
+          questions: data.questions,
+          introEnabled: data.introEnabled,
+        })
         game.setPlayers(data.players ?? [])
         ui.showSuccess('房主開了新的一局！')
         navigate(`/lobby/${data.roomId}`)
         break
 
       case 'HOST_DISCONNECTED':
+        // 主畫面斷線時說明也跟著中斷了，別讓手機卡在「請看大螢幕」
+        game.intro = null
         ui.showWarning('主畫面斷線了，正在等它回來…')
         break
 
@@ -555,6 +571,8 @@ export const useSocketStore = defineStore('socket', () => {
       voteSeconds: setup.voteSeconds,
       requireNickname: setup.requireNickname,
       practiceRound: setup.practiceRound,
+      practiceText: setup.practiceText,
+      gameIntro: setup.gameIntro,
     })
   }
 
@@ -580,6 +598,9 @@ export const useSocketStore = defineStore('socket', () => {
   const rename = (name: string) => send('RENAME_PLAYER', { name })
   const updateSettings = (payload: Record<string, unknown>) => send('UPDATE_SETTINGS', payload)
   const startGame = () => send('START_GAME')
+  /** 主畫面播玩法說明時把頁次轉播給玩家手機；active = false 代表說明結束 */
+  const gameIntro = (payload: { active: boolean; page?: number; total?: number; title?: string }) =>
+    send('GAME_INTRO', payload)
   const submitPhoto = (photoId: string) => send('SUBMIT_PHOTO', { photoId })
   const endShooting = () => send('END_SHOOTING')
   const endVoting = () => send('END_VOTING')
@@ -609,6 +630,7 @@ export const useSocketStore = defineStore('socket', () => {
     rename,
     updateSettings,
     startGame,
+    gameIntro,
     submitPhoto,
     endShooting,
     endVoting,

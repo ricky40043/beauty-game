@@ -11,7 +11,7 @@ import (
 // questionPayload 組出 NEW_QUESTION 的內容
 func (h *Hub) questionPayload(room *models.Room, q models.Question) map[string]any {
 	if room.InPractice {
-		q = models.PracticeQuestion
+		q = room.PracticeQuestionData()
 	}
 
 	return map[string]any{
@@ -35,7 +35,7 @@ func (h *Hub) questionPayload(room *models.Room, q models.Question) map[string]a
 func (h *Hub) startRound(room *models.Room) {
 	if room.InPractice {
 		log.Printf("🎈 房間 %s 進入試玩回合", room.ID)
-		h.BroadcastToRoom(room.ID, "NEW_QUESTION", h.questionPayload(room, models.PracticeQuestion))
+		h.BroadcastToRoom(room.ID, "NEW_QUESTION", h.questionPayload(room, room.PracticeQuestionData()))
 		// 試玩不倒數，房主按下開始才進正式題
 		return
 	}
@@ -451,6 +451,45 @@ func (c *Client) handleResetToLobby() {
 		"totalQuestions": len(room.Questions),
 		"questions":      room.Questions,
 		"players":        room.PlayerList(),
+		"introEnabled":   room.IntroEnabled,
+	})
+}
+
+// handleGameIntro 主畫面播玩法說明時的翻頁轉播。說明是主畫面自己在播（房間還在大廳），
+// 伺服器不存狀態，只把目前頁次轉給玩家手機，讓手機顯示「請看大螢幕」
+func (c *Client) handleGameIntro(data any) {
+	room, ok := c.requireHostRoom()
+	if !ok {
+		return
+	}
+
+	var req struct {
+		Active bool   `json:"active"`
+		Page   int    `json:"page"`
+		Total  int    `json:"total"`
+		Title  string `json:"title"`
+	}
+	if err := decode(data, &req); err != nil {
+		c.sendError("BAD_PAYLOAD", "說明參數格式錯誤")
+		return
+	}
+	// 遊戲開始後就不該再有說明；遲到的翻頁訊息直接丟掉，免得蓋住玩家的拍照畫面
+	if room.Status != models.RoomStatusWaiting {
+		return
+	}
+	if req.Total < 1 || req.Total > 20 || req.Page < 0 || req.Page >= req.Total {
+		req.Page, req.Total = 0, 1
+	}
+	if runes := []rune(req.Title); len(runes) > 40 {
+		req.Title = string(runes[:40])
+	}
+
+	c.hub.BroadcastToRoom(room.ID, "GAME_INTRO", map[string]any{
+		"roomId": room.ID,
+		"active": req.Active,
+		"page":   req.Page,
+		"total":  req.Total,
+		"title":  req.Title,
 	})
 }
 

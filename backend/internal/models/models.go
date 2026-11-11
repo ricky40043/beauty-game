@@ -118,6 +118,12 @@ type Room struct {
 	PracticeEnabled bool `json:"practiceEnabled"`
 	// InPractice 目前正處於試玩回合
 	InPractice bool `json:"inPractice"`
+	// PracticeText 試玩回合的題目，空字串代表用該模式的預設題（見 DefaultPracticeText）
+	PracticeText string `json:"practiceText"`
+
+	// IntroEnabled 開始遊戲前主畫面先播一段玩法說明。播放本身由主畫面負責（房間仍在 waiting），
+	// 伺服器只記住這個設定並把翻頁轉播給玩家手機
+	IntroEnabled bool `json:"introEnabled"`
 
 	Players   map[string]*Player `json:"players"`
 	Questions []Question         `json:"questions"`
@@ -195,14 +201,36 @@ type CreateRoomRequest struct {
 	VoteSeconds       *int     `json:"voteSeconds"`     // 投票倒數秒數
 	RequireNickname   bool     `json:"requireNickname"`
 	PracticeRound     bool     `json:"practiceRound"`
+	PracticeText      string   `json:"practiceText"` // 試玩題目，空的就用該模式的預設題
+	GameIntro         bool     `json:"gameIntro"`    // 開始前先播玩法說明
 }
 
 // PracticeQuestion 試玩回合用的題目。不屬於題庫，也不計入總題數。
+// 實際顯示的文字由房間決定，見 Room.PracticeQuestionData。
 var PracticeQuestion = Question{
 	ID:         9999,
 	Text:       "試玩：隨便拍一張，確認相機沒問題",
 	Category:   CategoryCustom,
 	Difficulty: 1,
+}
+
+// DefaultPracticeText 主持人沒指定試玩題時用的題目：要簡單到不用想，重點是確認相機沒問題
+func DefaultPracticeText(mode GameMode) string {
+	if mode == ModeGroup {
+		return "全員一起比 YA"
+	}
+	return "比出小愛心"
+}
+
+// PracticeQuestionData 這間房的試玩題
+func (r *Room) PracticeQuestionData() Question {
+	q := PracticeQuestion
+	q.Mode = r.Mode
+	q.Text = r.PracticeText
+	if q.Text == "" {
+		q.Text = DefaultPracticeText(r.Mode)
+	}
+	return q
 }
 
 // AddPlayer 新增玩家

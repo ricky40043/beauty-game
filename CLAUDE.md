@@ -107,6 +107,22 @@ cd frontend && npm run type-check
 用固定的 `models.PracticeQuestion`、**不倒數**（`TimeLeft = 0`、不啟計時器）、**不計分**、
 **不自動收桌**（`AllPlayersSubmitted` 在試玩時一律回 false），主畫面顯示全部投稿而非前 5 張。
 房主按 `END_PRACTICE` 才清掉試玩照片並進正式第 1 題。
+試玩題目可以選（`Room.PracticeText`，建房與大廳兩個設定彈窗都能改，元件是 `OpeningSettings.vue`）。
+空字串代表用該模式的預設題：單人「比出小愛心」、團體「全員一起比 YA」。
+現成選項寫在前端 `types/index.ts` 的 `PRACTICE_PRESETS`，第一個必須跟後端 `models.DefaultPracticeText` 一致；
+題目內容一律由 `Room.PracticeQuestionData()` 產生，不要直接讀 `models.PracticeQuestion.Text`。
+
+## 玩法說明（`Room.IntroEnabled`）
+
+建房預設勾「開始前先播玩法說明」。房主按「開始遊戲」時主畫面先疊上 `GameIntro.vue`：
+依房間設定產生的投影片（題數、每題秒數、得獎名額；投票模式改講「搶最快的前 N 張」與投票秒數；有試玩才有試玩頁），
+頁首進度條的 CSS 動畫跑完就自動翻頁（`@animationend`），最後一頁停著等房主按開始。
+
+- **這是純前端流程**：播放期間房間狀態仍是 `waiting`，按「開始」或「跳過說明」才送 `START_GAME`，所以播的時候還能掃碼加入
+- 伺服器只做兩件事：存設定、把房主送的 `GAME_INTRO`（頁次與標題）轉播給玩家，手機顯示「請看大螢幕」。
+  房間不在大廳時這則訊息會被丟掉；手機那層在 `GAME_STARTED`、`NEW_QUESTION`、回大廳、房主斷線時都會收掉
+- 「再來一局」（`ResetToLobby`）會把 `IntroEnabled` 關掉，同一批人不用再看一次；要重播在大廳的設定彈窗重新打開
+- 投影片上的分數（100/80/60/40/20、+15/+10/+5、團體 +50）是寫在 `GameIntro.vue` 裡的，改計分規則時要一起改
 
 ## 計分規則（`services/game_service.go`）
 
@@ -140,9 +156,9 @@ cd frontend && npm run type-check
 
 ## WebSocket 協定
 
-**Client → Server：** `CREATE_ROOM`、`JOIN_ROOM`、`REJOIN_ROOM`、`CHECK_ROOM`、`RENAME_PLAYER`、`UPDATE_SETTINGS`、`START_GAME`、`SUBMIT_PHOTO`、`END_SHOOTING`、`PICK_WINNERS`、`CAST_VOTE`、`SKIP_ROUND`、`NEXT_QUESTION`、`RESET_ROOM_TO_LOBBY`、`LEAVE_ROOM`、`PING`
+**Client → Server：** `CREATE_ROOM`、`JOIN_ROOM`、`REJOIN_ROOM`、`CHECK_ROOM`、`RENAME_PLAYER`、`UPDATE_SETTINGS`、`START_GAME`、`SUBMIT_PHOTO`、`END_SHOOTING`、`PICK_WINNERS`、`CAST_VOTE`、`SKIP_ROUND`、`NEXT_QUESTION`、`GAME_INTRO`、`RESET_ROOM_TO_LOBBY`、`LEAVE_ROOM`、`PING`
 
-**Server → Client：** `ROOM_CREATED`、`JOIN_SUCCESS`、`PLAYER_JOINED/LEFT/DISCONNECTED/REJOINED/RENAMED`、`ROOM_STATUS`、`REJOIN_SUCCESS`、`SETTINGS_UPDATED`、`GAME_STARTED`、`NEW_QUESTION`、`TIMER_UPDATE`、`PHOTO_SUBMITTED`、`PHOTO_ACCEPTED`、`ROUND_CLOSED`、`VOTING_STARTED`、`VOTES_UPDATED`、`VOTE_ACCEPTED`、`ROUND_RESULT`、`GAME_FINISHED`、`ROOM_RESET_TO_LOBBY`、`ROOM_CLOSED`、`HOST_DISCONNECTED/RECONNECTED`、`ERROR`、`PONG`
+**Server → Client：** `ROOM_CREATED`、`JOIN_SUCCESS`、`PLAYER_JOINED/LEFT/DISCONNECTED/REJOINED/RENAMED`、`ROOM_STATUS`、`REJOIN_SUCCESS`、`SETTINGS_UPDATED`、`GAME_INTRO`、`GAME_STARTED`、`NEW_QUESTION`、`TIMER_UPDATE`、`PHOTO_SUBMITTED`、`PHOTO_ACCEPTED`、`ROUND_CLOSED`、`VOTING_STARTED`、`VOTES_UPDATED`、`VOTE_ACCEPTED`、`ROUND_RESULT`、`GAME_FINISHED`、`ROOM_RESET_TO_LOBBY`、`ROOM_CLOSED`、`HOST_DISCONNECTED/RECONNECTED`、`ERROR`、`PONG`
 
 **REST 端點：** `/api/health`、`/api/rooms/:roomId/winners.zip`（每題第 1 名打包）、`/api/questions`、`/api/questions/:id/example`、`/api/rooms/:roomId`、`/api/rooms/:roomId/photos`、`/api/photos/:photoId`、`/api/admin/examples`、`/api/admin/questions/:id/example`
 

@@ -122,6 +122,23 @@ export interface RoomSetup {
   voteSeconds: number
   requireNickname: boolean
   practiceRound: boolean
+  /** 試玩題目，空字串 = 用該模式的預設題（PRACTICE_PRESETS 的第一個） */
+  practiceText: string
+  /** 開始遊戲前主畫面先播玩法說明 */
+  gameIntro: boolean
+}
+
+/** 試玩題的現成選項，第一個是預設（要跟後端 DefaultPracticeText 一致） */
+export const PRACTICE_PRESETS: Record<GameMode, string[]> = {
+  solo: ['比出小愛心', '踩到狗大便時的表情'],
+  group: ['全員一起比 YA'],
+}
+
+/** 主畫面正在播玩法說明時，轉播給玩家手機的頁次 */
+export interface IntroState {
+  page: number
+  total: number
+  title: string
 }
 
 /** 單人隨機抽題可以勾的分類（團體題只有一類，不用選） */

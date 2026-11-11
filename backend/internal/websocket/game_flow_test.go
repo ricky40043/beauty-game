@@ -1325,3 +1325,109 @@ func TestVoteTieGoesToEarlierUpload(t *testing.T) {
 		t.Fatalf("同票時後上傳的應該第 2 名 80 分，實際 %v", w2)
 	}
 }
+
+// TestIntroAndPracticeText 開場說明與試玩題目的設定：
+// 試玩題沒指定就用該模式的預設題、可以在建房或大廳改；說明翻頁會轉播給玩家；
+// 一局結束回大廳後說明自動關掉，不會每一局都重播
+func TestIntroAndPracticeText(t *testing.T) {
+	srv := newTestServer(t)
+
+	// ── 單人：預設「比出小愛心」，大廳改成自己打的題目
+	host := srv.dial(t)
+	host.send("CREATE_ROOM", map[string]any{
+		"hostName": "主持人", "mode": "solo", "questionMode": "random",
+		"totalQuestions": 1, "questionTimeLimit": 60,
+		"practiceRound": true, "gameIntro": true,
+	})
+	created := host.await("ROOM_CREATED")
+	roomID, _ := created["roomId"].(string)
+	if text, _ := created["practiceText"].(string); text != "比出小愛心" {
+		t.Fatalf("單人預設試玩題應為「比出小愛心」，實際 %q", text)
+	}
+	if intro, _ := created["introEnabled"].(bool); !intro {
+		t.Fatal("建房時 gameIntro 沒有生效")
+	}
+
+	player := srv.dial(t)
+	player.send("JOIN_ROOM", map[string]any{"roomId": roomID, "playerName": "小新"})
+	player.await("JOIN_SUCCESS")
+
+	host.send("UPDATE_SETTINGS", map[string]any{"practiceText": "  踩到狗大便時的表情  "})
+	updated := host.await("SETTINGS_UPDATED")
+	if text, _ := updated["practiceText"].(string); text != "踩到狗大便時的表情" {
+		t.Fatalf("大廳改試玩題沒生效，實際 %q", text)
+	}
+	if intro, _ := updated["introEnabled"].(bool); !intro {
+		t.Fatal("只改試玩題不該動到說明開關")
+	}
+	player.await("SETTINGS_UPDATED")
+
+	// 說明翻頁轉播給玩家
+	host.send("GAME_INTRO", map[string]any{"active": true, "page": 1, "total": 5, "title": "題目出現，馬上拍！"})
+	intro := player.await("GAME_INTRO")
+	if page, _ := intro["page"].(float64); int(page) != 1 {
+		t.Fatalf("說明頁次應為 1，實際 %v", intro["page"])
+	}
+	if title, _ := intro["title"].(string); title != "題目出現，馬上拍！" {
+		t.Fatalf("說明標題沒轉播，實際 %q", title)
+	}
+	// 玩家不能假冒主持人播說明
+	player.send("GAME_INTRO", map[string]any{"active": true, "page": 0, "total": 5})
+	rejected := <-player.msgs
+	if data, _ := rejected.Data.(map[string]any); rejected.Type != "ERROR" || data["code"] != "NOT_HOST" {
+		t.Fatalf("玩家送 GAME_INTRO 應回 NOT_HOST，實際 %s %v", rejected.Type, rejected.Data)
+	}
+
+	host.send("START_GAME", map[string]any{})
+	practice := host.await("NEW_QUESTION")
+	if text, _ := practice["text"].(string); text != "踩到狗大便時的表情" {
+		t.Fatalf("試玩題應該是主持人改的那一題，實際 %q", text)
+	}
+
+	// 遊戲開始後遲到的翻頁訊息要被丟掉，不能蓋住玩家的拍照畫面
+	host.send("GAME_INTRO", map[string]any{"active": true, "page": 2, "total": 5})
+
+	host.send("END_PRACTICE", map[string]any{})
+	host.await("NEW_QUESTION")
+	host.send("END_SHOOTING", map[string]any{})
+	host.await("GAME_FINISHED")
+	for {
+		msg := <-player.msgs
+		if msg.Type == "GAME_INTRO" {
+			t.Fatal("遊戲開始後不該再轉播說明")
+		}
+		if msg.Type == "GAME_FINISHED" {
+			break
+		}
+	}
+
+	host.send("RESET_ROOM_TO_LOBBY", map[string]any{})
+	reset := host.await("ROOM_RESET_TO_LOBBY")
+	if intro, ok := reset["introEnabled"].(bool); !ok || intro {
+		t.Fatalf("再來一局不該重播說明，introEnabled 實際 %v", reset["introEnabled"])
+	}
+
+	// 大廳可以再打開，也可以關掉試玩
+	host.send("UPDATE_SETTINGS", map[string]any{"gameIntro": true, "practiceRound": false})
+	again := host.await("SETTINGS_UPDATED")
+	if intro, _ := again["introEnabled"].(bool); !intro {
+		t.Fatal("大廳重新打開說明沒生效")
+	}
+	if practice, _ := again["practiceEnabled"].(bool); practice {
+		t.Fatal("大廳關掉試玩沒生效")
+	}
+
+	// ── 團體：預設「全員一起比 YA」
+	host2 := srv.dial(t)
+	host2.send("CREATE_ROOM", map[string]any{
+		"hostName": "主持人", "mode": "group", "questionMode": "random",
+		"totalQuestions": 1, "questionTimeLimit": 60, "practiceRound": true,
+	})
+	created2 := host2.await("ROOM_CREATED")
+	if text, _ := created2["practiceText"].(string); text != "全員一起比 YA" {
+		t.Fatalf("團體預設試玩題應為「全員一起比 YA」，實際 %q", text)
+	}
+	if intro, _ := created2["introEnabled"].(bool); intro {
+		t.Fatal("沒勾說明時 introEnabled 應為 false")
+	}
+}

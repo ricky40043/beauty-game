@@ -573,6 +573,8 @@ func (s *GameService) ResetToLobby(room *models.Room) {
 	room.Votes = nil
 	room.CurrentQuestion = -1
 	room.InPractice = false
+	// 玩法說明這群人已經看過了，再來一局不用重播；主持人要的話可以在大廳再打開
+	room.IntroEnabled = false
 	room.RoundPhotos = nil
 	room.RoundSeq++
 	room.TimeLeft = 0
