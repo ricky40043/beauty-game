@@ -200,6 +200,7 @@ func normalizeCategory(category string, mode models.GameMode) string {
 		models.CategoryStudent:    true,
 		models.CategoryWork:       true,
 		models.CategoryChurch:     true,
+		models.CategoryChristmas:  true,
 		models.CategoryGroup:      true,
 		models.CategoryCustom:     true,
 	}

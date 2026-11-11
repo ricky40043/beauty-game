@@ -13,7 +13,7 @@ import { useUIStore } from '@/stores/ui'
 import { useShutterSound } from '@/composables/useShutterSound'
 import { celebrate } from '@/utils/confetti'
 import { on } from '@/utils/bus'
-import { CATEGORY_LABELS } from '@/types'
+import { CATEGORY_EMOJI, CATEGORY_LABELS } from '@/types'
 
 const game = useGameStore()
 const ui = useUIStore()
@@ -160,7 +160,17 @@ const isLastQuestion = computed(
 </script>
 
 <template>
-  <main class="flex min-h-screen flex-col px-8 py-6 lg:px-12">
+  <main class="relative flex min-h-screen flex-col px-8 py-6 lg:px-12">
+    <!-- 題目分類：放在畫面正上方中間，一眼看出這題是哪一類 -->
+    <div
+      v-if="question && !isPractice && question.category !== 'custom'"
+      class="pointer-events-none absolute inset-x-0 top-3 flex justify-center"
+    >
+      <span class="rounded-full border border-white/15 bg-white/10 px-4 py-1 text-sm font-semibold text-slate-200 backdrop-blur">
+        {{ CATEGORY_EMOJI[question.category] ?? '' }} {{ CATEGORY_LABELS[question.category] ?? question.category }}
+      </span>
+    </div>
+
     <!-- 題目列 -->
     <header class="flex shrink-0 flex-wrap items-center justify-between gap-6">
       <div class="min-w-0 flex-1">
@@ -176,9 +186,6 @@ const isLastQuestion = computed(
           </span>
           <template v-else>
             第 {{ question?.questionNum ?? '-' }} / {{ question?.totalQuestions ?? '-' }} 題
-            <span v-if="question" class="ml-2 rounded bg-white/10 px-2 py-0.5">
-              {{ CATEGORY_LABELS[question.category] ?? question.category }}
-            </span>
           </template>
           <span v-if="mode === 'group'" class="ml-2 rounded bg-blush-500/25 px-2 py-0.5">
             團體合體照

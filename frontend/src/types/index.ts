@@ -134,7 +134,24 @@ export const SOLO_CATEGORIES = [
   'student',
   'work',
   'church',
+  'christmas',
 ]
+
+/** 主畫面題目上方的分類小標籤用 */
+export const CATEGORY_EMOJI: Record<string, string> = {
+  expression: '😆',
+  imitate: '🎭',
+  pose: '🤳',
+  color: '🎨',
+  object: '🔍',
+  advanced: '⭐',
+  student: '🎒',
+  work: '💼',
+  church: '⛪',
+  christmas: '🎄',
+  group: '👯',
+  custom: '✏️',
+}
 
 export const CATEGORY_LABELS: Record<string, string> = {
   expression: '表情',
@@ -145,7 +162,8 @@ export const CATEGORY_LABELS: Record<string, string> = {
   advanced: '進階',
   student: '學生篇',
   work: '職場篇',
-  church: '教會聖誕',
+  church: '教會',
+  christmas: '聖誕市集',
   group: '團體',
   custom: '自訂',
 }

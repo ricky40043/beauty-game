@@ -36,7 +36,7 @@ cd frontend && npm run type-check
 **服務層：**
 - `internal/services/game_service.go` — 回合狀態機與計分。**所有會改動 Room 的動作都必須經過這裡的 mutex**，Hub 與 Client 不直接改 Room 欄位
 - `internal/services/room_service.go` — 記憶體房間 CRUD、玩家進出、自動暱稱、房號產生（去掉 0/O/1/I）
-- `internal/services/question_service.go` / `question_bank.go` — 內建 105 題題庫（solo 80 / group 25）、隨機抽題（可勾分類，勾了就各分類平均輪流抽）、自選題序組題
+- `internal/services/question_service.go` / `question_bank.go` — 內建 97 題題庫（solo 72 / group 25）、隨機抽題（可勾分類，勾了就各分類平均輪流抽）、自選題序組題
 - `internal/services/question_store.go` — 後台自訂題目與停用清單，落地成 `{EXAMPLE_DIR}/questions.json`（先寫暫存檔再 rename）
 - `internal/storage/photo_store.go` — 記憶體照片庫，magic bytes 驗格式，per-room 張數與容量配額
 - `internal/examples/` — 題目示範圖。`figure.go` 是火柴人 SVG 產生器（肢體用 polyline 畫出關節，頭與臉最後畫才不會被手臂穿過），`scenes.go` 是 25 題團體題的站位設定，`store.go` 是房主自訂圖的磁碟覆寫層
@@ -74,7 +74,7 @@ cd frontend && npm run type-check
 
 | 範圍 | 用途 |
 |---|---|
-| 1001~1810 | 內建單人題（百位數 = 分類：10 表情 … 15 進階、16 學生、17 職場、18 教會聖誕） |
+| 1001~1910 | 內建單人題（百位數 = 分類：10 表情、11 模仿、12 自拍姿勢、13 找顏色、14 找物品、16 學生、17 職場、18 教會、19 聖誕市集；改題目一律給新編號，不重用舊編號） |
 | 2001~2025 | 內建團體題 |
 | 9000+ | 房主建房時臨時打的題目（不落地，只存在該房間） |
 | 9999 | 試玩題 |

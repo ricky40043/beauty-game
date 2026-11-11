@@ -2,7 +2,7 @@ package services
 
 import "beauty-game/internal/models"
 
-// soloQuestions 單人題庫（61 題）。ID 1000 起算。
+// soloQuestions 單人題庫（72 題）。ID 1000 起算。
 // Difficulty：1 = 基礎（拍了就有）、2 = 進階（要找東西、要構圖）
 var soloQuestions = []models.Question{
 	// ── 表情 expression（10）────────────────────────────────
@@ -11,25 +11,26 @@ var soloQuestions = []models.Question{
 	{ID: 1003, Text: "假裝你聞到了世界上最臭的味道", Category: models.CategoryExpression, Difficulty: 1},
 	{ID: 1004, Text: "裝出「已經一個禮拜沒睡」的死魚眼", Category: models.CategoryExpression, Difficulty: 1},
 	{ID: 1005, Text: "拍一張假哭到梨花帶淚的臉", Category: models.CategoryExpression, Difficulty: 1},
-	{ID: 1006, Text: "做出被雷打到的驚嚇表情", Category: models.CategoryExpression, Difficulty: 1},
+	{ID: 1013, Text: "打開冰箱發現點心被吃光的表情", Category: models.CategoryExpression, Difficulty: 1},
 	{ID: 1007, Text: "露出「我全都知道了」的邪魅微笑", Category: models.CategoryExpression, Difficulty: 1},
-	{ID: 1008, Text: "拍一張只有左半邊臉在笑的照片", Category: models.CategoryExpression, Difficulty: 2},
-	{ID: 1009, Text: "同時做到「挑一邊眉毛」+「嘟嘴」", Category: models.CategoryExpression, Difficulty: 2},
+	{ID: 1011, Text: "吃到超酸檸檬的表情", Category: models.CategoryExpression, Difficulty: 1},
+	{ID: 1012, Text: "偶像本人突然站在你面前的表情", Category: models.CategoryExpression, Difficulty: 1},
 	{ID: 1010, Text: "拍出你看到帳單那一秒的表情", Category: models.CategoryExpression, Difficulty: 1},
 
-	// ── 模仿 imitate（4）────────────────────────────────────
+	// ── 模仿 imitate（5）────────────────────────────────────
 	{ID: 1103, Text: "模仿一座希臘雕像，要有肌肉線條", Category: models.CategoryImitate, Difficulty: 1},
-	{ID: 1105, Text: "模仿中樂透卻裝鎮定的人", Category: models.CategoryImitate, Difficulty: 1},
+	{ID: 1110, Text: "模仿一隻被叫到名字、歪頭的狗狗", Category: models.CategoryImitate, Difficulty: 1},
+	{ID: 1111, Text: "模仿拿著香蕉講電話的阿嬤", Category: models.CategoryImitate, Difficulty: 1},
 	{ID: 1106, Text: "模仿超浮誇 YouTuber 的震驚封面臉", Category: models.CategoryImitate, Difficulty: 1},
 	{ID: 1108, Text: "模仿手機只剩 1% 電的人", Category: models.CategoryImitate, Difficulty: 2},
 
 	// ── 自拍姿勢 pose（7）──────────────────────────────────
 	{ID: 1201, Text: "45 度角網美自拍，要有下巴線條", Category: models.CategoryPose, Difficulty: 1},
-	{ID: 1202, Text: "比出愛心，而且全程不能笑", Category: models.CategoryPose, Difficulty: 1},
+	{ID: 1209, Text: "比出愛心，但臉要超級臭", Category: models.CategoryPose, Difficulty: 1},
 	{ID: 1203, Text: "單手托腮的憂鬱文青風自拍", Category: models.CategoryPose, Difficulty: 1},
 	{ID: 1204, Text: "拍一張擠出雙下巴的仰角自拍", Category: models.CategoryPose, Difficulty: 1},
 	{ID: 1205, Text: "用手指框住自己的臉當相框", Category: models.CategoryPose, Difficulty: 1},
-	{ID: 1206, Text: "拍一張從下往上的超級醜角度", Category: models.CategoryPose, Difficulty: 1},
+	{ID: 1210, Text: "假裝在拍偶像劇，來一個深情回眸", Category: models.CategoryPose, Difficulty: 1},
 	{ID: 1207, Text: "拍一張假裝被偷拍的明星街拍照", Category: models.CategoryPose, Difficulty: 2},
 
 	// ── 找顏色 color（5）──────────────────────────────────
@@ -44,7 +45,7 @@ var soloQuestions = []models.Question{
 	{ID: 1402, Text: "找一支筆當麥克風，擺出唱歌的樣子", Category: models.CategoryObject, Difficulty: 1},
 	{ID: 1403, Text: "隨便拿個東西當紅酒杯搖晃耍帥", Category: models.CategoryObject, Difficulty: 1},
 	{ID: 1405, Text: "隨便拿一樣東西當武器，擺出殺氣臉", Category: models.CategoryObject, Difficulty: 1},
-	{ID: 1406, Text: "找一個東西擋住臉，只露出一隻眼睛", Category: models.CategoryObject, Difficulty: 1},
+	{ID: 1409, Text: "拿一個包包，假裝是剛買的名牌包在炫耀", Category: models.CategoryObject, Difficulty: 1},
 
 	// ── 學生篇 student（11）──────────────────────────────
 	{ID: 1601, Text: "考卷發下來，看到「38 分」那一秒的表情", Category: models.CategoryStudent, Difficulty: 1},
@@ -53,14 +54,14 @@ var soloQuestions = []models.Question{
 	{ID: 1604, Text: "上課打瞌睡被點名，瞬間驚醒的臉", Category: models.CategoryStudent, Difficulty: 1},
 	{ID: 1605, Text: "考前一晚才第一次翻開課本的絕望表情", Category: models.CategoryStudent, Difficulty: 1},
 	{ID: 1606, Text: "老師突然宣布「現在隨堂考」的表情", Category: models.CategoryStudent, Difficulty: 1},
-	{ID: 1607, Text: "考試偷看隔壁被抓包的表情", Category: models.CategoryStudent, Difficulty: 1},
-	{ID: 1608, Text: "假裝認真聽課，其實靈魂出竅的臉", Category: models.CategoryStudent, Difficulty: 1},
+	{ID: 1612, Text: "下課鐘一響，衝去福利社的樣子", Category: models.CategoryStudent, Difficulty: 1},
+	{ID: 1613, Text: "上台報告講到一半突然忘詞的表情", Category: models.CategoryStudent, Difficulty: 1},
 	{ID: 1609, Text: "分組報告，組員全部已讀不回的表情", Category: models.CategoryStudent, Difficulty: 1},
 	{ID: 1610, Text: "偷吃早餐被老師發現，嘴巴還塞滿的樣子", Category: models.CategoryStudent, Difficulty: 1},
 	{ID: 1611, Text: "半夜玩手遊被媽媽發現的表情", Category: models.CategoryStudent, Difficulty: 1},
 
 	// ── 職場篇 work（10）─────────────────────────────────
-	{ID: 1701, Text: "對老闆露出「禮貌但想離職」的微笑", Category: models.CategoryWork, Difficulty: 1},
+	{ID: 1711, Text: "客戶說「再改一下就好」的表情", Category: models.CategoryWork, Difficulty: 1},
 	{ID: 1702, Text: "明明是老闆的錯，最後卻怪到你頭上的表情", Category: models.CategoryWork, Difficulty: 1},
 	{ID: 1703, Text: "翹班出去買飲料，被主管當場抓到的表情", Category: models.CategoryWork, Difficulty: 1},
 	{ID: 1704, Text: "週一早上打卡前，靈魂出竅的臉", Category: models.CategoryWork, Difficulty: 1},
@@ -71,7 +72,7 @@ var soloQuestions = []models.Question{
 	{ID: 1709, Text: "同事說「幫我一下，只要五分鐘」的表情", Category: models.CategoryWork, Difficulty: 1},
 	{ID: 1710, Text: "收到「明天放颱風假」通知的表情", Category: models.CategoryWork, Difficulty: 1},
 
-	// ── 教會／聖誕篇 church（9）────────────────────────
+	// ── 教會 church（9）────────────────────────
 	{ID: 1801, Text: "打開手機訊息，發現新朋友放你鳥的表情", Category: models.CategoryChurch, Difficulty: 1},
 	{ID: 1803, Text: "聚會遲到推門進來，全場回頭看你的表情", Category: models.CategoryChurch, Difficulty: 1},
 	{ID: 1804, Text: "想吃最後一塊炸雞，卻看到新朋友也想吃時的反應", Category: models.CategoryChurch, Difficulty: 1},
@@ -81,6 +82,18 @@ var soloQuestions = []models.Question{
 	{ID: 1808, Text: "聚會延長半小時，很想上廁所的表情", Category: models.CategoryChurch, Difficulty: 1},
 	{ID: 1809, Text: "尷尬而不失禮貌的微笑", Category: models.CategoryChurch, Difficulty: 1},
 	{ID: 1810, Text: "聚會偷溜，在門口剛好被牧師看到的表情", Category: models.CategoryChurch, Difficulty: 1},
+
+	// ── 聖誕市集 christmas（10）──────────────────────────
+	{ID: 1901, Text: "賣鬆餅時，客人問「有番茄醬嗎？」的表情", Category: models.CategoryChristmas, Difficulty: 1},
+	{ID: 1902, Text: "問客人「要全糖嗎？」，客人回「加一點辣」的表情", Category: models.CategoryChristmas, Difficulty: 1},
+	{ID: 1903, Text: "客人吃了一口說「不好吃，可以退費嗎？」的表情", Category: models.CategoryChristmas, Difficulty: 1},
+	{ID: 1904, Text: "二手衣攤被問「這件可以打 3 折嗎？」的表情", Category: models.CategoryChristmas, Difficulty: 1},
+	{ID: 1905, Text: "顧攤一整天，終於有客人走過來的表情", Category: models.CategoryChristmas, Difficulty: 1},
+	{ID: 1906, Text: "客人拿 1000 元，只買一個 20 元的東西", Category: models.CategoryChristmas, Difficulty: 1},
+	{ID: 1907, Text: "隔壁攤大排長龍，你的攤位沒半個人", Category: models.CategoryChristmas, Difficulty: 1},
+	{ID: 1908, Text: "客人問「這是你自己做的嗎？」其實是買來的表情", Category: models.CategoryChristmas, Difficulty: 1},
+	{ID: 1909, Text: "戴上聖誕帽，用最熱情的笑容大聲叫賣", Category: models.CategoryChristmas, Difficulty: 1},
+	{ID: 1910, Text: "收攤數錢，發現少了 100 元的表情", Category: models.CategoryChristmas, Difficulty: 1},
 }
 
 // groupQuestions 團體題庫（25 題）。ID 2000 起算，全部都是合體照。

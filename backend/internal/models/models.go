@@ -36,7 +36,8 @@ const (
 	CategoryAdvanced   = "advanced"   // 進階複合
 	CategoryStudent    = "student"    // 學生篇
 	CategoryWork       = "work"       // 職場篇
-	CategoryChurch     = "church"     // 教會／聖誕篇
+	CategoryChurch     = "church"     // 教會
+	CategoryChristmas  = "christmas"  // 聖誕市集
 	CategoryGroup      = "group"      // 團體合體照
 	CategoryCustom     = "custom"     // 房主自訂
 )
