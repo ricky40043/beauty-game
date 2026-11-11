@@ -94,15 +94,6 @@ var scenes = map[int]Scene{
 			return figs
 		}(),
 	},
-	2008: {
-		Caption: "高低三層人像",
-		Note:    "站、半蹲、蹲下三層，注意安全不要真的疊人",
-		Figures: merge(
-			row(2, 150, baseY-56, 0.8, ArmsUp, LegsStand, FaceLaugh),
-			row(3, 130, baseY-26, 0.8, ArmsSide, LegsStand, FaceSmile),
-			row(2, 170, baseY+8, 0.72, ArmsDown, LegsKneel, FaceSmile),
-		),
-	},
 	2009: {
 		Caption: "全體比一個超大的愛心",
 		Note:    "雙手在頭上合成愛心，四個人排整齊",
@@ -138,16 +129,6 @@ var scenes = map[int]Scene{
 			}
 			return figs
 		}(),
-	},
-	2014: {
-		Caption: "排成一直線只露一隻眼",
-		Note:    "前後排成一排，後面的人只探出半張臉",
-		Figures: []Figure{
-			{X: 300, Y: baseY, Scale: 1.1, Arms: ArmsDown, Legs: LegsStand, Face: FaceNeutral},
-			{X: 262, Y: baseY - 6, Scale: 1.02, Arms: ArmsDown, Legs: LegsStand, Face: FaceNeutral},
-			{X: 226, Y: baseY - 12, Scale: 0.94, Arms: ArmsDown, Legs: LegsStand, Face: FaceNeutral},
-			{X: 192, Y: baseY - 18, Scale: 0.86, Arms: ArmsDown, Legs: LegsStand, Face: FaceNeutral},
-		},
 	},
 	2015: {
 		Caption: "犯罪現場擺拍",
@@ -189,16 +170,6 @@ var scenes = map[int]Scene{
 		Caption: "全體模仿同一隻動物",
 		Note:    "四肢著地或蹲低，動作要一致",
 		Figures: row(4, 100, baseY, 1, ArmsDown, LegsKneel, FaceLaugh),
-	},
-	2021: {
-		Caption: "錯位：有人被放在手掌上",
-		Note:    "近的人伸出手，遠的人站到手掌的位置上，鏡頭要對齊",
-		Figures: []Figure{
-			// 小人的落腳點必須剛好是大人手掌的末端，否則看起來只是浮在半空。
-			// 手掌末端 = X + 36*Scale, Y + (shoulderY-12)*Scale
-			{X: 112, Y: baseY + 30, Scale: 1.55, Arms: ArmsPointR, Legs: LegsWide, Face: FaceSmile},
-			{X: 168, Y: baseY - 82, Scale: 0.52, Arms: ArmsUp, Legs: LegsStand, Face: FaceLaugh},
-		},
 	},
 	2022: {
 		Caption: "全體舉手，手勢都不一樣",

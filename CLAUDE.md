@@ -36,10 +36,10 @@ cd frontend && npm run type-check
 **服務層：**
 - `internal/services/game_service.go` — 回合狀態機與計分。**所有會改動 Room 的動作都必須經過這裡的 mutex**，Hub 與 Client 不直接改 Room 欄位
 - `internal/services/room_service.go` — 記憶體房間 CRUD、玩家進出、自動暱稱、房號產生（去掉 0/O/1/I）
-- `internal/services/question_service.go` / `question_bank.go` — 內建 97 題題庫（solo 72 / group 25）、隨機抽題（可勾分類，勾了就各分類平均輪流抽）、自選題序組題
+- `internal/services/question_service.go` / `question_bank.go` — 內建 94 題題庫（solo 72 / group 22）、隨機抽題（可勾分類，勾了就各分類平均輪流抽）、自選題序組題
 - `internal/services/question_store.go` — 後台自訂題目與停用清單，落地成 `{EXAMPLE_DIR}/questions.json`（先寫暫存檔再 rename）
 - `internal/storage/photo_store.go` — 記憶體照片庫，magic bytes 驗格式，per-room 張數與容量配額
-- `internal/examples/` — 題目示範圖。`figure.go` 是火柴人 SVG 產生器（肢體用 polyline 畫出關節，頭與臉最後畫才不會被手臂穿過），`scenes.go` 是 25 題團體題的站位設定，`store.go` 是房主自訂圖的磁碟覆寫層
+- `internal/examples/` — 題目示範圖。`figure.go` 是火柴人 SVG 產生器（肢體用 polyline 畫出關節，頭與臉最後畫才不會被手臂穿過），`scenes.go` 是 22 題團體題的站位設定，`store.go` 是房主自訂圖的磁碟覆寫層
 - `internal/handlers/example_handler.go` — 示範圖讀取（自訂圖優先、退回內建、都沒有 404）與後台上傳/刪除
 - `internal/names/names.go` — 免取名模式的「形容詞 + 動物 + emoji」暱稱產生器
 

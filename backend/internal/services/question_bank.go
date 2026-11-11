@@ -89,14 +89,14 @@ var soloQuestions = []models.Question{
 	{ID: 1903, Text: "客人吃了一口說「不好吃，可以退費嗎？」的表情", Category: models.CategoryChristmas, Difficulty: 1},
 	{ID: 1904, Text: "二手衣攤被問「這件可以打 3 折嗎？」的表情", Category: models.CategoryChristmas, Difficulty: 1},
 	{ID: 1905, Text: "顧攤一整天，終於有客人走過來的表情", Category: models.CategoryChristmas, Difficulty: 1},
-	{ID: 1906, Text: "客人拿 1000 元，只買一個 20 元的東西", Category: models.CategoryChristmas, Difficulty: 1},
+	{ID: 1911, Text: "客人問「我可以先賒帳，明天給嗎？」的表情", Category: models.CategoryChristmas, Difficulty: 1},
 	{ID: 1907, Text: "隔壁攤大排長龍，你的攤位沒半個人", Category: models.CategoryChristmas, Difficulty: 1},
 	{ID: 1908, Text: "客人問「這是你自己做的嗎？」其實是買來的表情", Category: models.CategoryChristmas, Difficulty: 1},
 	{ID: 1909, Text: "戴上聖誕帽，用最熱情的笑容大聲叫賣", Category: models.CategoryChristmas, Difficulty: 1},
 	{ID: 1910, Text: "收攤數錢，發現少了 100 元的表情", Category: models.CategoryChristmas, Difficulty: 1},
 }
 
-// groupQuestions 團體題庫（25 題）。ID 2000 起算，全部都是合體照。
+// groupQuestions 團體題庫（22 題）。ID 2000 起算，全部都是合體照。
 var groupQuestions = []models.Question{
 	{ID: 2001, Text: "全體比出同一個手勢，一個都不能歪", Category: models.CategoryGroup, Difficulty: 1},
 	{ID: 2002, Text: "拍一張大家都在假笑的僵硬全家福", Category: models.CategoryGroup, Difficulty: 1},
@@ -105,20 +105,17 @@ var groupQuestions = []models.Question{
 	{ID: 2005, Text: "每個人拿一樣「同顏色」的東西合照", Category: models.CategoryGroup, Difficulty: 2},
 	{ID: 2006, Text: "全體用身體排出一個英文字母", Category: models.CategoryGroup, Difficulty: 2},
 	{ID: 2007, Text: "拍一張大家都在跳起來的瞬間", Category: models.CategoryGroup, Difficulty: 2},
-	{ID: 2008, Text: "疊出高低排列的三層人像（請注意安全）", Category: models.CategoryGroup, Difficulty: 2},
 	{ID: 2009, Text: "全體一起比出一個超大的愛心", Category: models.CategoryGroup, Difficulty: 1},
 	{ID: 2010, Text: "拍一張看起來像樂團封面的合照", Category: models.CategoryGroup, Difficulty: 2},
 	{ID: 2011, Text: "全體做出同一個表情，越誇張越好", Category: models.CategoryGroup, Difficulty: 1},
 	{ID: 2012, Text: "假裝大家正在被同一件事嚇到", Category: models.CategoryGroup, Difficulty: 1},
 	{ID: 2013, Text: "拍一張所有人都在吃東西的合照", Category: models.CategoryGroup, Difficulty: 1},
-	{ID: 2014, Text: "排成一直線，只露出每個人的一隻眼睛", Category: models.CategoryGroup, Difficulty: 2},
 	{ID: 2015, Text: "拍一張像犯罪現場的搞笑擺拍", Category: models.CategoryGroup, Difficulty: 2},
 	{ID: 2016, Text: "全體背對鏡頭，只用背影表達開心", Category: models.CategoryGroup, Difficulty: 2},
 	{ID: 2017, Text: "每個人比一根手指，合起來變成一個數字", Category: models.CategoryGroup, Difficulty: 2},
 	{ID: 2018, Text: "拍一張最擠的合照，塞越多人越好", Category: models.CategoryGroup, Difficulty: 1},
 	{ID: 2019, Text: "假裝大家正在合力抬起一個東西", Category: models.CategoryGroup, Difficulty: 1},
 	{ID: 2020, Text: "全體模仿同一隻動物", Category: models.CategoryGroup, Difficulty: 1},
-	{ID: 2021, Text: "拍一張有人被「錯位」放在手掌上的合照", Category: models.CategoryGroup, Difficulty: 2},
 	{ID: 2022, Text: "全體舉手，但每個人的手勢都不一樣", Category: models.CategoryGroup, Difficulty: 1},
 	{ID: 2023, Text: "拍一張假裝在拍廣告的高級感合照", Category: models.CategoryGroup, Difficulty: 2},
 	{ID: 2024, Text: "全部人一起指向畫面外的同一點", Category: models.CategoryGroup, Difficulty: 1},
